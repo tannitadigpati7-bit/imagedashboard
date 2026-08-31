@@ -126,7 +126,12 @@
     overflow:hidden;display:flex;flex-direction:column;
   }
   .card .imgwrap{position:relative;background:#1C1D21;aspect-ratio:4/3;display:grid;place-items:center;overflow:hidden}
-  .card .imgwrap img{width:100%;height:100%;object-fit:contain;display:block}
+  .card .imgwrap img{width:100%;height:100%;object-fit:contain;display:block;cursor:zoom-in}
+  .card .imgwrap .peek{
+    position:absolute;left:9px;bottom:9px;background:rgba(20,20,23,.72);color:var(--ink-dim);
+    font-size:10.5px;font-weight:700;border-radius:999px;padding:3px 9px;pointer-events:none;
+    display:flex;align-items:center;gap:5px}
+  .card .imgwrap .peek svg{width:12px;height:12px}
   .card .del{
     position:absolute;top:9px;right:9px;width:26px;height:26px;border-radius:50%;
     border:none;background:rgba(20,20,23,.72);color:var(--ink-dim);cursor:pointer;
@@ -183,6 +188,22 @@
     flex:none;border:none;border-radius:10px;background:var(--panel-2);color:var(--ink);
     font-weight:700;font-size:12px;padding:0 13px;cursor:pointer}
   .cmt-in button:hover{background:var(--yellow);color:var(--ink-on-yellow)}
+  .cmt-in input:disabled{opacity:.55}
+  .cmt-in button:disabled{opacity:.4;cursor:not-allowed;background:var(--panel-2);color:var(--ink)}
+
+  /* ============ lightbox ============ */
+  .lightbox{
+    position:fixed;inset:0;background:rgba(9,10,12,.93);z-index:60;
+    display:none;flex-direction:column;align-items:center;justify-content:center;
+    gap:12px;padding:30px;cursor:zoom-out}
+  .lightbox.show{display:flex}
+  .lightbox img{max-width:94vw;max-height:84vh;object-fit:contain;border-radius:8px;
+    box-shadow:0 24px 70px rgba(0,0,0,.55);cursor:default}
+  .lightbox .cap{color:var(--ink-dim);font-size:12.5px;font-weight:600;text-align:center;max-width:80vw}
+  .lightbox .x{
+    position:absolute;top:16px;right:20px;width:36px;height:36px;border-radius:50%;
+    border:none;background:rgba(255,255,255,.12);color:var(--ink);font-size:16px;cursor:pointer}
+  .lightbox .x:hover{background:rgba(255,255,255,.22)}
 
   /* drop targets */
   .dropcard{
@@ -369,6 +390,13 @@
   </div>
 </div>
 
+<!-- full-image viewer -->
+<div class="lightbox" id="lightbox">
+  <button class="x" id="lightboxX" type="button" aria-label="Close">✕</button>
+  <img id="lightboxImg" alt="">
+  <div class="cap" id="lightboxCap"></div>
+</div>
+
 <input type="file" id="filePick" accept="image/*" multiple class="hide">
 
 <script>
@@ -391,6 +419,7 @@
 
   var state = { people:[], weeks:[], images:[], reactions:[], comments:[], requests:[] };
   var me = null, curWeek = null, lastSig = "", drafts = {}, busy = false;
+  var seen = {};   // image ids this device has opened full-size this session
 
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
@@ -560,8 +589,11 @@
     var myR = me ? rx.filter(function(r){ return r.person_id===me.id; })[0] : null;
     var cmts = sortBy(state.comments.filter(function(c){ return c.image_id===im.id; }), "created_at");
 
+    var opened = !!seen[im.id];
+
     var html = "";
     html += '<div class="imgwrap"><img src="'+esc(im.url)+'" alt="'+esc(im.title)+'" loading="lazy">';
+    html += '<span class="peek"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3M11 8v6M8 11h6"/></svg>'+(opened?"Opened":"Click to view full")+'</span>';
     html += '<button class="del" title="Remove image" type="button">✕</button></div>';
     html += '<div class="body">';
     html += '<input class="title" maxlength="80" value="'+esc(im.title)+'" aria-label="Image title">';
@@ -592,11 +624,14 @@
     });
     html += '</div>';
     var draftKey = "c_" + im.id;
-    html += '<div class="cmt-in"><input maxlength="500" data-draft="'+draftKey+'" placeholder="What should change?"><button type="button">Post</button></div>';
+    html += '<div class="cmt-in"><input maxlength="500" data-draft="'+draftKey+'"'+(opened?"":" disabled")+
+      ' placeholder="'+(opened?"What should change?":"Open the full image first")+'">'+
+      '<button type="button"'+(opened?"":" disabled")+'>Post</button></div>';
     html += '</div></div>';
 
     card.innerHTML = html;
 
+    card.querySelector(".imgwrap img").onclick = function(){ openLightbox(im); };
     card.querySelector(".del").onclick = function(){ removeImage(im); };
 
     var titleIn = card.querySelector(".title");
@@ -615,6 +650,7 @@
     if (drafts[draftKey]) cIn.value = drafts[draftKey];
     var post = function(){
       if (!requireMe()) return;
+      if (!seen[im.id]){ openLightbox(im); return; }
       var t = cIn.value.trim(); if (!t) return;
       var row = { id: uid(), image_id: im.id, person_id: me.id, body: t, created_at: nowISO() };
       state.comments.push(row);
@@ -682,7 +718,7 @@
               url: publicURL(path), storage_path: path, bytes: blob.size, added_by: me.id, created_at: nowISO()
             });
           })
-          .then(function(){ busy = false; setChip("Saved"); next(); })
+          .then(function(){ busy = false; seen[id] = true; setChip("Saved"); next(); })
           .catch(function(e){ busy = false; setChip("Upload failed"); showBanner("Image upload failed — " + esc(e.message)); });
       });
     })();
@@ -861,6 +897,22 @@
     renderWeeks(); renderBoard();
     mutate(ins("weeks", row));
   };
+
+  /* ---------- full-image viewer ---------- */
+  function openLightbox(im){
+    $("lightboxImg").src = im.url;
+    $("lightboxImg").alt = im.title || "";
+    $("lightboxCap").textContent = im.title || "";
+    $("lightbox").classList.add("show");
+    if (!seen[im.id]){ seen[im.id] = true; renderBoard(); }   // unlock its comment box
+  }
+  function closeLightbox(){
+    $("lightbox").classList.remove("show");
+    $("lightboxImg").removeAttribute("src");
+  }
+  $("lightbox").onclick = function(e){ if (e.target.id !== "lightboxImg") closeLightbox(); };
+  $("lightboxX").onclick = closeLightbox;
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeLightbox(); });
 
   /* ---------- boot ---------- */
   function boot(){
