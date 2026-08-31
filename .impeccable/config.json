@@ -1,0 +1,14 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "overused-font",
+        "value": "plus jakarta sans",
+        "createdAt": "2026-08-31T11:54:06.893Z",
+        "reason": "inherited from the original creative-board.html design; kept to preserve the existing look the team already uses"
+      }
+    ]
+  }
+}

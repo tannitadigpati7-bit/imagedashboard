@@ -28,9 +28,12 @@ create table if not exists public.images (
   title         text not null default 'Untitled',
   url           text not null,
   storage_path  text,
+  bytes         bigint,
   added_by      text references public.people(id) on delete set null,
   created_at    timestamptz not null default now()
 );
+-- for projects created before the storage bar was added:
+alter table public.images add column if not exists bytes bigint;
 
 create table if not exists public.reactions (
   id          bigint generated always as identity primary key,

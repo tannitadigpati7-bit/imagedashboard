@@ -305,7 +305,8 @@
 
     <div class="foot">
       <div id="storageTxt">Loading…</div>
-      <div>Feedback saves to the shared board for the whole team.</div>
+      <div class="meter"><i id="storageBar" style="width:2%"></i></div>
+      <div id="storageHint">Images are compressed before upload. Clear old weeks' images if this fills.</div>
     </div>
   </aside>
 
@@ -386,6 +387,7 @@
   var CONFIGURED = !/YOUR-PROJECT|YOUR-ANON-KEY/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
   var REST = SUPABASE_URL + "/rest/v1/";
   var POLL_MS = 5000;
+  var STORAGE_CAP_MB = 1024;   // Supabase free tier: 1 GB of file storage
 
   var state = { people:[], weeks:[], images:[], reactions:[], comments:[], requests:[] };
   var me = null, curWeek = null, lastSig = "", drafts = {}, busy = false;
@@ -677,7 +679,7 @@
             return ins("images", {
               id:id, week_id:curWeek.id,
               title: (f.name.replace(/\.[a-z0-9]+$/i,"").replace(/[-_]+/g," ").trim()) || "Untitled",
-              url: publicURL(path), storage_path: path, added_by: me.id, created_at: nowISO()
+              url: publicURL(path), storage_path: path, bytes: blob.size, added_by: me.id, created_at: nowISO()
             });
           })
           .then(function(){ busy = false; setChip("Saved"); next(); })
@@ -694,7 +696,8 @@
         .then(function(){
           var bust = "?v=" + Date.now();
           im.url = publicURL(path) + bust;
-          return upd("images", "id=eq."+im.id, { url: publicURL(path) + bust, storage_path: path });
+          im.bytes = blob.size;
+          return upd("images", "id=eq."+im.id, { url: publicURL(path) + bust, storage_path: path, bytes: blob.size });
         })
         .then(function(){ busy = false; setChip("Saved"); return load(true); })
         .catch(function(e){ busy = false; setChip("Upload failed"); showBanner("Replace failed — " + esc(e.message)); });
@@ -734,8 +737,15 @@
 
   function renderFoot(){
     if (!CONFIGURED){ $("storageTxt").textContent = "Offline"; return; }
-    $("storageTxt").textContent = state.images.length + " creatives · " +
-      state.reactions.length + " reactions · " + state.comments.length + " comments";
+    var bytes = state.images.reduce(function(s, im){ return s + (Number(im.bytes) || 0); }, 0);
+    var usedMB = bytes / 1048576;
+    var pct = Math.min(100, usedMB / STORAGE_CAP_MB * 100);
+    $("storageTxt").textContent = "Image storage · " +
+      usedMB.toFixed(usedMB < 10 ? 1 : 0) + " MB of " + STORAGE_CAP_MB + " MB  (" +
+      state.images.length + " creative" + (state.images.length === 1 ? "" : "s") + ")";
+    var bar = $("storageBar");
+    bar.style.width = Math.max(2, pct).toFixed(1) + "%";
+    bar.style.background = pct > 85 ? "var(--bad)" : (pct > 60 ? "var(--yellow-deep)" : "var(--yellow)");
   }
 
   /* ---------- requests ---------- */
