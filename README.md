@@ -1,30 +1,51 @@
 # Creative Review Board
 
-Weekly image-review dashboard for the creatives Tannita & Theerthi's team sends before the Tuesday WBR. Lives as a Claude artifact the whole team uses in the browser; this repo is the source of truth for `creative-board.html`.
+Weekly image-review dashboard for the creatives Tannita & Theerthi's team sends before the Tuesday WBR. Runs as a plain web page on GitHub Pages; all feedback lives in a Supabase database. Meant to plug into the larger WBR system later by reading the same tables.
 
-**Live board:** https://claude.ai/code/artifact/4d45f818-755e-4c5b-a685-bb2861d5afd2
-**Source:** `creative-board.html` in this folder — the file that is published as the artifact.
+**Live board:** https://tannitadigpati7-bit.github.io/imagedashboard/creative-board.html
+**Source:** `creative-board.html` — one static file, no build step.
+
+## Architecture
+
+```
+Browser (any device)  ──HTTPS──►  Supabase (Postgres + Storage)  ◄── WBR system reads the same tables
+   creative-board.html                 free tier
+```
+
+- **Page:** `creative-board.html`, served free by GitHub Pages from this repo. Config (Supabase URL + anon key) is a block at the top of the file.
+- **Data:** six Postgres tables — `people`, `weeks`, `images`, `reactions`, `comments`, `requests`. Each reaction/comment is its own row (`INSERT ... ON CONFLICT` for reactions), so simultaneous clicks from different reviewers can't overwrite each other.
+- **Images:** uploaded from the page to a public Supabase Storage bucket (`creatives`), compressed client-side to max 1280px JPEG. Only the URL is stored in `images`. No size cap on the board.
+- **Sync:** the page re-fetches every 5s (and on tab focus) and redraws when something changed. It skips the redraw while a reviewer is typing so it can't yank the cursor.
+- **Identity:** pick-your-name reviewer profiles stored per device (`localStorage`), stamped on every row. Honor-system, not passworded.
 
 ## What it does
 
-- **Review board** — drag image files onto the board (several at once) or click "+ Add images"; drop a file onto an existing card to replace its image. Images are auto-compressed (max 1280px JPEG) before saving.
-- **Reactions** — thumbs up / thumbs down per image, with counts on the buttons and a net-score chip.
+- **Review board** — drag creatives onto the board (several at once) or "+ Add images"; drop a file on an existing card to replace it.
+- **Reactions** — thumbs up / thumbs down per image, counts on the buttons, net-score chip, and chips showing who reacted which way.
 - **Comments** — "What should change?" box under every image.
-- **Requirements tab** — anyone types an ask; it queues as an open task with their name and date. Dev ticks the checkbox when done; it moves to Completed with who/when.
+- **Requests tab** — anyone types an ask; it queues with their name and date. Tick the checkbox when the creative is done; it moves to Completed with who/when.
 - **Weeks** — "+ New week" starts a fresh set each Tuesday; old weeks stay browsable in the sidebar.
 
-## Identity & access
+## First-time setup
 
-- Access = artifact sharing (share menu on the page). View-only viewers see everything but can't react.
-- Identity inside the board = pick-your-name reviewer profiles (Dev, Tannita, Theerthi, Divya, Ashwini, Harish, Ruthrakesavan, Shashank, Shilpa; anyone can add themselves). Every reaction, comment and requirement is stamped with the profile name. Honor-system, not passworded; the artifact's version history records which account saved each change.
+1. **Supabase project** — create a free one at https://supabase.com.
+2. **Run the schema** — Supabase → SQL Editor → New query → paste all of `supabase-setup.sql` → Run. (Safe to re-run.)
+3. **Wire the page** — Supabase → Settings → API. Copy **Project URL** and the **anon public** key into the `CONFIG` block near the top of `creative-board.html`, commit, push.
+4. **Turn on GitHub Pages** — repo → Settings → Pages → Source: `Deploy from a branch`, branch `main`, folder `/ (root)`. Wait ~1 min.
+5. Share `https://tannitadigpati7-bit.github.io/imagedashboard/creative-board.html` with the team. No accounts needed to react or comment.
 
-## How it saves (technical, for future sessions)
+The anon key is designed to be public — the row-level rules in `supabase-setup.sql` are what limit access (read/write those six tables only, nothing else in the project).
 
-- Uses the artifact runtime capability (`window.claude.use("artifact")`). Shared state (people, weeks, images as data URIs, reactions, comments, requirements) lives in `data/state.json`, published from the page via the files form; falls back to full-HTML publish (state spliced into the `#seed` script block) when the files form is unavailable, e.g. while sharing is public. Newest `rev` wins at load.
-- ~14 MB total budget; sidebar shows a storage meter. Clear old weeks' images when it fills.
-- **Live sync fix (31 Aug 2026):** earlier versions only fetched `data/state.json` once at page load, so a reviewer's open tab never picked up anyone else's reactions/comments unless they hard-reloaded — you'd see your own changes instantly but not a teammate's. The page now polls `data/state.json` every 6s (and on tab focus) and merges in any revision newer than what's on screen, skipping the merge while a local edit is mid-publish so it can't get clobbered. A publish conflict also now triggers an immediate re-poll instead of just showing "Updated elsewhere…" and stopping there.
-- **Editing the board later:** republish against the artifact URL, but the page saves a new version on every reaction — always read the live version first and build on it, or the publish will conflict. From a cloud session that needs `*.frame.claudeusercontent.com` on the network allowlist (Settings → Code → Network access). Never `force: true` without Dev's explicit say-so.
+## Editing later
+
+Just edit `creative-board.html` and push — GitHub Pages redeploys automatically. There's no artifact/publish dance and no "read the live version first" — the database is the source of truth, the file is only the UI.
 
 ## WBR system integration
 
-This board is meant to plug into the larger WBR system already being built. Once the live-sync fix is verified with the team, the plan is to embed/link this artifact (or its `creative-board.html`) into that system rather than keep it as a standalone link.
+The WBR system reads the same Supabase tables directly (or via its REST API). Nothing to export or migrate. `reactions` gives you the vote tally per creative per week; `requests` is the creative-request backlog.
+
+## Notes / possible upgrades
+
+- Live push instead of 5s polling: Supabase Realtime subscriptions on the six tables.
+- Verified identity: swap the name-picker for Supabase anonymous auth or a shared passcode.
+- The `requests` table already has `in_progress` and `assigned_to` columns; the UI currently only toggles open/done.

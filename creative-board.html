@@ -1,13 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bathla Creative Board</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap">
 <style>
   :root{
-    --ground:#5A616E;          /* slate frame behind the shell */
-    --shell:#232428;           /* charcoal app shell */
-    --panel:#2C2D33;           /* card on shell */
-    --panel-2:#34353C;         /* raised / hover */
-    --light-card:#ECECEF;      /* the one light card, used sparingly */
+    --ground:#5A616E;
+    --shell:#232428;
+    --panel:#2C2D33;
+    --panel-2:#34353C;
+    --light-card:#ECECEF;
     --ink:#F2F2F5;
     --ink-dim:#B9BBC6;
     --ink-mute:#8E909C;
@@ -146,7 +151,6 @@
   .thumb:hover{color:var(--ink)}
   .thumb.up.on{background:var(--good);border-color:var(--good);color:#17281C}
   .thumb.dn.on{background:var(--bad);border-color:var(--bad);color:#2B140F}
-  .thumb .n{display:none}
   .avgchip{
     margin-left:auto;background:var(--panel-2);border-radius:999px;padding:4px 11px;
     font-size:11.5px;font-weight:700;color:var(--ink-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -263,9 +267,8 @@
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
-
-<!-- ======= shared state (embedded fallback; data/state.json wins when newer) ======= -->
-<script type="application/json" id="seed">{"rev":1,"people":[{"id":"dev","name":"Dev","color":"#F2E64F","role":"Creative lead"},{"id":"tannita","name":"Tannita","color":"#8AB4F8","role":"Reviewer"},{"id":"theerthi","name":"Theerthi","color":"#F49BC1","role":"Reviewer"},{"id":"divya","name":"Divya","color":"#79C388","role":"Reviewer"},{"id":"ashwini","name":"Ashwini","color":"#F0A45B","role":"Reviewer"},{"id":"harish","name":"Harish","color":"#B49BF4","role":"Reviewer"},{"id":"ruthra","name":"Ruthrakesavan","color":"#6FD3C7","role":"Reviewer"},{"id":"shashank","name":"Shashank","color":"#E5735F","role":"Reviewer"},{"id":"shilpa","name":"Shilpa","color":"#D8C46A","role":"Reviewer"}],"weeks":[{"id":"w1","label":"WBR — Sep 1, 2026"}],"images":[],"requirements":[]}</script>
+</head>
+<body>
 
 <div class="shell">
   <!-- ================= SIDEBAR ================= -->
@@ -289,7 +292,7 @@
       </button>
       <button id="navReq" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 5.5l1 1 2-2"/><path d="M4 11.5l1 1 2-2"/><path d="M4 17.5l1 1 2-2"/></svg>
-        Requirements
+        Requests
         <span class="cnt" id="reqCnt">0</span>
       </button>
     </nav>
@@ -301,9 +304,8 @@
     </div>
 
     <div class="foot">
-      <div id="storageTxt">Storage</div>
-      <div class="meter"><i id="storageBar" style="width:2%"></i></div>
-      <div>Everything saves to this page for the whole team.</div>
+      <div id="storageTxt">Loading…</div>
+      <div>Feedback saves to the shared board for the whole team.</div>
     </div>
   </aside>
 
@@ -325,11 +327,11 @@
       <div class="grid" id="grid"></div>
     </section>
 
-    <!-- REQUIREMENTS VIEW -->
+    <!-- REQUESTS VIEW -->
     <section id="viewReq" class="hide">
       <div class="top">
         <div>
-          <h1>Requirements</h1>
+          <h1>Requests</h1>
           <div class="sub">Anyone can add an ask. Dev checks it off when the creative is done.</div>
         </div>
         <div class="sp"></div>
@@ -371,177 +373,130 @@
 <script>
 (function(){
   "use strict";
-  /* ---------- state ---------- */
-  var state = JSON.parse(document.getElementById("seed").textContent);
-  var artifactNS = null;         // claude artifact capability namespace
-  var canWrite = true;           // flips false on not_writer / not_granted
-  var liveShared = false;        // capability resolved
-  var me = null;                 // current person object
-  var curWeek = null;
-  var dirty = false, publishTimer = null, publishing = false;
-  var MAX_BYTES = 14*1024*1024;
-  var POLL_MS = 6000;
-  var pollTimer = null;
+
+  /* ================= CONFIG =================
+     Fill these in after creating your Supabase project.
+     Settings -> API -> Project URL and "anon public" key.
+     The anon key is meant to be public; row rules in supabase-setup.sql
+     are what control access.                                            */
+  var SUPABASE_URL      = "https://YOUR-PROJECT.supabase.co";
+  var SUPABASE_ANON_KEY = "YOUR-ANON-KEY";
+  /* ========================================= */
+
+  var CONFIGURED = !/YOUR-PROJECT|YOUR-ANON-KEY/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
+  var REST = SUPABASE_URL + "/rest/v1/";
+  var POLL_MS = 5000;
+
+  var state = { people:[], weeks:[], images:[], reactions:[], comments:[], requests:[] };
+  var me = null, curWeek = null, lastSig = "", drafts = {}, busy = false;
 
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
     return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]; }); };
-  var uid = function(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); };
-  var initials = function(n){ return n.trim().split(/\s+/).map(function(w){return w[0];}).slice(0,2).join("").toUpperCase(); };
+  var uid = function(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); };
+  var nowISO = function(){ return new Date().toISOString(); };
+  var initials = function(n){ return String(n||"?").trim().split(/\s+/).map(function(w){return w[0]||"";}).slice(0,2).join("").toUpperCase(); };
   var person = function(id){ for (var i=0;i<state.people.length;i++) if(state.people[i].id===id) return state.people[i]; return null; };
-  var fmtDay = function(t){ var d=new Date(t); return d.toLocaleDateString("en-IN",{day:"numeric",month:"short"}); };
+  var fmtDay = function(t){ try{ return new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short"}); }catch(e){ return ""; } };
+  var sortBy = function(a,k){ return a.slice().sort(function(x,y){ return (x[k]<y[k])?-1:(x[k]>y[k])?1:0; }); };
 
-  /* ---------- boot: newest state wins (embedded vs data/state.json) ---------- */
-  function boot(){
-    fetchRemote(function(remote){
-      if (remote && typeof remote.rev==="number" && remote.rev > state.rev) state = remote;
-      afterState();
+  /* ---------- REST helpers ---------- */
+  function api(path, opts){
+    opts = opts || {};
+    opts.headers = Object.assign({
+      "apikey": SUPABASE_ANON_KEY,
+      "Authorization": "Bearer " + SUPABASE_ANON_KEY,
+      "Content-Type": "application/json"
+    }, opts.headers || {});
+    return fetch(REST + path, opts).then(function(r){
+      return r.text().then(function(t){
+        if (!r.ok) throw new Error(r.status + " " + t);
+        return t ? JSON.parse(t) : null;
+      });
     });
   }
-  function fetchRemote(cb){
-    fetch("data/state.json", {cache:"no-store"})
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .catch(function(){ return null; })
-      .then(cb);
+  function sel(table){ return api(table + "?select=*"); }
+  function ins(table, row, prefer, q){
+    return api(table + (q ? ("?" + q) : ""), {
+      method:"POST", headers:{ "Prefer": prefer || "return=minimal" }, body: JSON.stringify(row) });
   }
-  function afterState(){
-    curWeek = state.weeks[state.weeks.length-1];
-    var savedId = null;
-    try { savedId = localStorage.getItem("bcb_me"); } catch(e){}
-    me = savedId ? person(savedId) : null;
-    restoreDrafts();
-    renderAll();
-    if (!me) openPicker();
-    connect();
-    startPolling();
+  function upd(table, filter, patch){
+    return api(table + "?" + filter, {
+      method:"PATCH", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(patch) });
+  }
+  function del(table, filter){ return api(table + "?" + filter, { method:"DELETE" }); }
+
+  function stObject(path, method, body, ctype){
+    var h = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
+    if (ctype) h["Content-Type"] = ctype;
+    if (method === "POST") h["x-upsert"] = "true";
+    return fetch(SUPABASE_URL + "/storage/v1/object/creatives/" + path, { method:method, headers:h, body:body })
+      .then(function(r){ if (!r.ok) return r.text().then(function(t){ throw new Error("storage " + r.status + " " + t); }); return r; });
+  }
+  function publicURL(path){ return SUPABASE_URL + "/storage/v1/object/public/creatives/" + path; }
+
+  /* ---------- load / poll ---------- */
+  function load(force){
+    if (!CONFIGURED){ renderAll(); return Promise.resolve(); }
+    if (busy && !force) return Promise.resolve();
+    var ae = document.activeElement;
+    var typing = !force && ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
+    return Promise.all([ sel("people"), sel("weeks"), sel("images"), sel("reactions"), sel("comments"), sel("requests") ])
+      .then(function(r){
+        state.people   = r[0] || [];
+        state.weeks    = sortBy(r[1] || [], "created_at");
+        state.images   = r[2] || [];
+        state.reactions= r[3] || [];
+        state.comments = r[4] || [];
+        state.requests = r[5] || [];
+        if (!curWeek || !state.weeks.some(function(w){ return w.id===curWeek.id; }))
+          curWeek = state.weeks[state.weeks.length-1] || null;
+        else
+          curWeek = state.weeks.filter(function(w){ return w.id===curWeek.id; })[0];
+        var sig = JSON.stringify(state);
+        if (sig === lastSig && !force) return;
+        if (typing) return;                 // don't redraw under someone's cursor; next poll catches it
+        lastSig = sig;
+        renderAll();
+      })
+      .catch(function(e){ showBanner("Couldn't reach the board data — " + esc(e.message)); });
   }
 
-  /* ---------- live sync: other tabs/people only ever get this page's initial
-     fetch unless we keep re-checking data/state.json ourselves, so poll for
-     newer revisions and merge them in whenever we're not mid-edit. ---------- */
-  function startPolling(){
-    stopPolling();
-    pollTimer = setInterval(pollRemote, POLL_MS);
-    document.addEventListener("visibilitychange", function(){
-      if (document.visibilityState === "visible") pollRemote();
-    });
-  }
-  function stopPolling(){ if (pollTimer){ clearInterval(pollTimer); pollTimer = null; } }
-  function pollRemote(){
-    // don't clobber an in-flight local change; it'll re-check right after it publishes
-    if (dirty || publishing) return;
-    fetchRemote(function(remote){
-      if (!remote || typeof remote.rev!=="number" || remote.rev <= state.rev) return;
-      var curWeekId = curWeek ? curWeek.id : null;
-      state = remote;
-      curWeek = (curWeekId && state.weeks.some(function(w){return w.id===curWeekId;}))
-        ? state.weeks.filter(function(w){return w.id===curWeekId;})[0]
-        : state.weeks[state.weeks.length-1];
-      renderAll();
-    });
+  function mutate(p){
+    busy = true; setChip("Saving…");
+    return Promise.resolve(p)
+      .then(function(){ busy = false; setChip("Saved"); return load(true); })
+      .catch(function(e){
+        busy = false; setChip("Couldn't save");
+        showBanner("That change didn't save — " + esc(e.message) + ". It'll retry on your next action.");
+        return load(true);
+      });
   }
 
-  /* ---------- capability ---------- */
-  function connect(){
-    if (!(window.claude && window.claude.use)) { offlineBanner(); return; }
-    window.claude.use("artifact").then(function(ns){
-      if (!ns) { offlineBanner(); return; }
-      artifactNS = ns; liveShared = true;
-      $("banner").classList.remove("show");
-    });
-  }
-  function offlineBanner(){
-    showBanner("Live sharing isn't running in this view — you can explore, but changes stay on this device only. Open the board from its claude.ai link to review with the team.");
-  }
+  /* ---------- banners / chip ---------- */
   function showBanner(html){ $("bannerTxt").innerHTML = html; $("banner").classList.add("show"); }
-  function readOnlyMode(){
-    canWrite = false;
-    showBanner("<b>View only.</b> You can see everything, but you don't have edit access to this board — ask Dev to share it with edit permissions.");
-  }
-
-  /* ---------- saving ---------- */
-  function markDirty(){
-    if (!canWrite) return;
-    dirty = true;
-    setChip("Saving…");
-    clearTimeout(publishTimer);
-    publishTimer = setTimeout(doPublish, 900);
-  }
+  function hideBanner(){ $("banner").classList.remove("show"); }
   function setChip(t){ $("saveChip").textContent = t; $("saveChip2").textContent = t; }
-  function doPublish(){
-    if (!dirty || publishing) return;
-    if (!artifactNS){ if(liveShared===false) setChip("Local only"); return; }
-    publishing = true; dirty = false;
-    state.rev++;
-    var json = JSON.stringify(state).replace(/</g,"\\u003c");
-    stashDrafts();
-    artifactNS.publish({"data/state.json": {content: json, contentType: "application/json"}})
-      .then(function(){ publishing=false; setChip("Saved"); if (dirty) doPublish(); })
-      .catch(function(err){
-        publishing = false;
-        var code = err && err.code;
-        if (code==="conflict"){
-          // someone else published in between: pull their winning revision and merge it in now
-          setChip("Updated elsewhere…");
-          pollRemote();
-          return;
-        }
-        if (code==="not_writer" || code==="not_granted"){ readOnlyMode(); return; }
-        if (code==="rate_limited"){ dirty=true; setChip("Saving…"); publishTimer=setTimeout(doPublish, 4000); return; }
-        if (code==="capability_disabled" || code==="capability_removed" || code==="read_only_path" || code==="invalid_content"){
-          htmlFallback(json); return;
-        }
-        // upstream_error: one retry
-        dirty = true; setChip("Retrying…"); publishTimer = setTimeout(doPublish, 1500 + Math.random()*1500);
-      });
-  }
-  function htmlFallback(json){
-    fetch(location.href, {cache:"no-store"}).then(function(r){ return r.text(); }).then(function(html){
-      var re = /(<script type="application\/json" id="seed">)[\s\S]*?(<\/script>)/;
-      if (!re.test(html)) throw new Error("seed block not found");
-      var next = html.replace(re, function(_, a, b){ return a + json + b; });
-      stashDrafts();
-      return artifactNS.publish(next);            // full-page publish; this view reloads
-    }).then(function(){ setChip("Saved"); })
-      .catch(function(err){
-        var code = err && err.code;
-        if (code==="conflict") { setChip("Updated elsewhere…"); pollRemote(); return; }
-        if (code==="not_writer" || code==="not_granted") { readOnlyMode(); return; }
-        setChip("Couldn't save");
-        showBanner("Saving didn't go through just now — your change is still on screen; it will retry with your next action.");
-        dirty = true;
-      });
-  }
-  /* keep half-typed comments across the reload a publish/conflict causes */
-  function stashDrafts(){
-    try{
-      var d = {};
-      var ins = document.querySelectorAll("[data-draft]");
-      for (var i=0;i<ins.length;i++) if (ins[i].value) d[ins[i].getAttribute("data-draft")] = ins[i].value;
-      sessionStorage.setItem("bcb_drafts", JSON.stringify(d));
-    }catch(e){}
-  }
-  var drafts = {};
-  function restoreDrafts(){
-    try{ drafts = JSON.parse(sessionStorage.getItem("bcb_drafts")||"{}"); sessionStorage.removeItem("bcb_drafts"); }catch(e){ drafts={}; }
-  }
 
   /* ---------- rendering ---------- */
-  function renderAll(){ renderMe(); renderWeeks(); renderBoard(); renderReqs(); renderStorage(); }
+  function renderAll(){ renderMe(); renderWeeks(); renderBoard(); renderReqs(); renderFoot(); }
 
   function renderMe(){
     if (me){
       $("meAv").textContent = initials(me.name);
-      $("meAv").style.background = me.color;
+      $("meAv").style.background = me.color || "#F2E64F";
       $("meName").textContent = me.name;
       $("meRole").textContent = me.role || "Reviewer";
+    } else {
+      $("meAv").textContent = "?"; $("meAv").style.background = "var(--panel-2)";
+      $("meName").textContent = "Choose reviewer"; $("meRole").innerHTML = "&nbsp;";
     }
   }
 
   function renderWeeks(){
     var box = $("weekList"); box.innerHTML = "";
     state.weeks.slice().reverse().forEach(function(w){
-      var n = state.images.filter(function(im){ return im.weekId===w.id; }).length;
+      var n = state.images.filter(function(im){ return im.week_id===w.id; }).length;
       var b = document.createElement("button");
       b.type = "button";
       b.className = (curWeek && w.id===curWeek.id) ? "on" : "";
@@ -552,18 +507,28 @@
   }
 
   function harvestDrafts(){
-    var ins = document.querySelectorAll("#grid [data-draft]");
+    var ins = document.querySelectorAll("#grid [data-draft], #viewReq [data-draft]");
     for (var i=0;i<ins.length;i++){
       var k = ins[i].getAttribute("data-draft");
       if (ins[i].value) drafts[k] = ins[i].value; else delete drafts[k];
     }
   }
+
   function renderBoard(){
     harvestDrafts();
     $("weekTitle").textContent = curWeek ? curWeek.label : "Review board";
     var grid = $("grid"); grid.innerHTML = "";
-    var imgs = state.images.filter(function(im){ return curWeek && im.weekId===curWeek.id; });
 
+    if (!CONFIGURED){
+      var m = document.createElement("div");
+      m.className = "empty-note";
+      m.textContent = "Not connected to Supabase yet — see the banner above.";
+      grid.appendChild(m);
+      return;
+    }
+
+    var imgs = state.images.filter(function(im){ return curWeek && im.week_id===curWeek.id; });
+    imgs = sortBy(imgs, "created_at");
     imgs.forEach(function(im){ grid.appendChild(imageCard(im)); });
 
     var drop = document.createElement("div");
@@ -586,93 +551,102 @@
   function imageCard(im){
     var card = document.createElement("div");
     card.className = "card";
-    var by = person(im.addedBy);
-    var ups = 0, dns = 0;
-    Object.keys(im.thumbs).forEach(function(k){ if(im.thumbs[k]==="up") ups++; else dns++; });
+    var by = person(im.added_by);
+    var rx = state.reactions.filter(function(r){ return r.image_id===im.id; });
+    var ups = rx.filter(function(r){ return r.value==="up"; }).length;
+    var dns = rx.filter(function(r){ return r.value==="down"; }).length;
+    var myR = me ? rx.filter(function(r){ return r.person_id===me.id; })[0] : null;
+    var cmts = sortBy(state.comments.filter(function(c){ return c.image_id===im.id; }), "created_at");
 
     var html = "";
-    html += '<div class="imgwrap"><img src="'+im.src+'" alt="'+esc(im.title)+'">';
+    html += '<div class="imgwrap"><img src="'+esc(im.url)+'" alt="'+esc(im.title)+'" loading="lazy">';
     html += '<button class="del" title="Remove image" type="button">✕</button></div>';
     html += '<div class="body">';
     html += '<input class="title" maxlength="80" value="'+esc(im.title)+'" aria-label="Image title">';
-    html += '<div class="meta">Added by '+esc(by?by.name:"—")+' · '+fmtDay(im.addedAt)+'</div>';
+    html += '<div class="meta">Added by '+esc(by?by.name:"—")+' · '+fmtDay(im.created_at)+'</div>';
 
-    /* thumbs up / down */
-    var myT = me ? im.thumbs[me.id] : null;
     html += '<div class="raterow">';
-    html += '<button type="button" class="thumb up'+(myT==="up"?" on":"")+'" title="Thumbs up">'+
+    html += '<button type="button" class="thumb up'+(myR&&myR.value==="up"?" on":"")+'" title="Thumbs up">'+
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11m0 0L11 3c1.5 0 2.5 1 2.5 2.5V9H19a2 2 0 012 2l-1.6 8a2 2 0 01-2 1.6H7z"/><path d="M7 11H3v11h4"/></svg>'+ups+'</button>';
-    html += '<button type="button" class="thumb dn'+(myT==="down"?" on":"")+'" title="Thumbs down">'+
+    html += '<button type="button" class="thumb dn'+(myR&&myR.value==="down"?" on":"")+'" title="Thumbs down">'+
       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m0 0l-4 8c-1.5 0-2.5-1-2.5-2.5V15H5a2 2 0 01-2-2l1.6-8a2 2 0 012-1.6H17z"/><path d="M17 13h4V2h-4"/></svg>'+dns+'</button>';
     html += '<span class="avgchip">'+((ups||dns) ? "<b>"+(ups-dns>0?"+":"")+(ups-dns)+"</b> · "+(ups+dns)+(ups+dns===1?" reaction":" reactions") : "No reactions")+'</span>';
     html += '</div>';
 
-    /* who reacted */
     html += '<div class="who">';
-    Object.keys(im.thumbs).forEach(function(pid){
-      var p = person(pid); if(!p) return;
-      var t = im.thumbs[pid]==="up" ? "▲" : "▼";
-      html += '<span class="chip" title="'+esc(p.name)+': thumbs '+(im.thumbs[pid])+'"><i style="background:'+p.color+'">'+esc(initials(p.name))+'</i>'+t+'</span>';
+    rx.forEach(function(r){
+      var p = person(r.person_id); if(!p) return;
+      var t = r.value==="up" ? "▲" : "▼";
+      html += '<span class="chip" title="'+esc(p.name)+': thumbs '+esc(r.value)+'"><i style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</i>'+t+'</span>';
     });
     html += '</div>';
 
-    /* comments */
     html += '<div class="comments"><div class="list">';
-    im.comments.forEach(function(c){
-      var p = person(c.by);
-      html += '<div class="cmt"><span class="av" style="background:'+(p?p.color:"#888")+'">'+esc(p?initials(p.name):"?")+'</span>'+
-        '<div class="b"><div class="h"><b>'+esc(p?p.name:"Unknown")+'</b> · '+fmtDay(c.at)+'</div>'+
-        '<div class="t">'+esc(c.text)+'</div></div></div>';
+    cmts.forEach(function(c){
+      var p = person(c.person_id);
+      html += '<div class="cmt"><span class="av" style="background:'+esc(p?p.color:"#888")+'">'+esc(p?initials(p.name):"?")+'</span>'+
+        '<div class="b"><div class="h"><b>'+esc(p?p.name:"Unknown")+'</b> · '+fmtDay(c.created_at)+'</div>'+
+        '<div class="t">'+esc(c.body)+'</div></div></div>';
     });
     html += '</div>';
-    var draftKey = "c_"+im.id;
+    var draftKey = "c_" + im.id;
     html += '<div class="cmt-in"><input maxlength="500" data-draft="'+draftKey+'" placeholder="What should change?"><button type="button">Post</button></div>';
     html += '</div></div>';
 
     card.innerHTML = html;
 
-    /* wire events */
-    card.querySelector(".del").onclick = function(){
-      if (!requireMe()) return;
-      if (!confirm('Remove "'+im.title+'" and its feedback?')) return;
-      state.images = state.images.filter(function(x){ return x.id!==im.id; });
-      renderBoard(); renderWeeks(); renderStorage(); markDirty();
-    };
+    card.querySelector(".del").onclick = function(){ removeImage(im); };
+
     var titleIn = card.querySelector(".title");
-    titleIn.onchange = function(){ im.title = titleIn.value.trim() || im.title; titleIn.value = im.title; markDirty(); };
-    card.querySelector(".thumb.up").onclick = function(){
-      if (!requireMe()) return;
-      im.thumbs[me.id] = (im.thumbs[me.id]==="up") ? undefined : "up";
-      if (!im.thumbs[me.id]) delete im.thumbs[me.id];
-      renderBoard(); markDirty();
+    titleIn.onchange = function(){
+      var v = titleIn.value.trim() || im.title;
+      titleIn.value = v;
+      if (v === im.title) return;
+      im.title = v;
+      mutate(upd("images", "id=eq."+im.id, { title:v }));
     };
-    card.querySelector(".thumb.dn").onclick = function(){
-      if (!requireMe()) return;
-      im.thumbs[me.id] = (im.thumbs[me.id]==="down") ? undefined : "down";
-      if (!im.thumbs[me.id]) delete im.thumbs[me.id];
-      renderBoard(); markDirty();
-    };
+
+    card.querySelector(".thumb.up").onclick = function(){ toggleReaction(im, "up"); };
+    card.querySelector(".thumb.dn").onclick = function(){ toggleReaction(im, "down"); };
+
     var cIn = card.querySelector(".cmt-in input");
     if (drafts[draftKey]) cIn.value = drafts[draftKey];
     var post = function(){
       if (!requireMe()) return;
       var t = cIn.value.trim(); if (!t) return;
-      im.comments.push({ id: uid(), by: me.id, text: t, at: Date.now() });
-      cIn.value = "";
+      var row = { id: uid(), image_id: im.id, person_id: me.id, body: t, created_at: nowISO() };
+      state.comments.push(row);
       delete drafts[draftKey];
-      renderBoard(); markDirty();
+      cIn.value = ""; cIn.blur();
+      renderBoard();
+      mutate(ins("comments", row));
     };
     card.querySelector(".cmt-in button").onclick = post;
-    cIn.onkeydown = function(e){ if (e.key==="Enter") post(); };
+    cIn.onkeydown = function(e){ if (e.key === "Enter") post(); };
 
-    /* drop a file onto an existing card to replace its image */
     wireDrop(card, function(files){
       if (!files.length || !requireMe()) return;
-      compress(files[0], function(dataURL){
-        im.src = dataURL; renderBoard(); renderStorage(); markDirty();
-      });
+      replaceImage(im, files[0]);
     });
     return card;
+  }
+
+  /* ---------- reactions ---------- */
+  function toggleReaction(im, val){
+    if (!requireMe()) return;
+    var mine = state.reactions.filter(function(r){ return r.image_id===im.id && r.person_id===me.id; })[0];
+    var p;
+    if (mine && mine.value === val){
+      state.reactions = state.reactions.filter(function(r){ return r !== mine; });
+      p = del("reactions", "image_id=eq."+im.id+"&person_id=eq."+me.id);
+    } else {
+      if (mine) mine.value = val;
+      else state.reactions.push({ image_id:im.id, person_id:me.id, value:val });
+      p = ins("reactions", { image_id:im.id, person_id:me.id, value:val, created_at:nowISO() },
+              "return=minimal,resolution=merge-duplicates", "on_conflict=image_id,person_id");
+    }
+    renderBoard();
+    mutate(p);
   }
 
   /* ---------- uploads ---------- */
@@ -685,112 +659,150 @@
       fn(files);
     });
   }
-  $("filePick").onchange = function(){ addFiles(Array.prototype.slice.call(this.files)); this.value=""; };
-  $("addBtn").onclick = function(){ $("filePick").click(); };
+  $("filePick").onchange = function(){ addFiles(Array.prototype.slice.call(this.files)); this.value = ""; };
+  $("addBtn").onclick = function(){ if (requireMe()) $("filePick").click(); };
 
   function addFiles(files){
-    if (!files.length) return;
-    if (!requireMe()) return;
+    if (!files.length || !requireMe() || !curWeek) return;
     var i = 0;
     (function next(){
-      if (i>=files.length){ renderBoard(); renderWeeks(); renderStorage(); markDirty(); return; }
+      if (i >= files.length){ load(true); return; }
       var f = files[i++];
-      compress(f, function(dataURL){
-        if (roomFor(dataURL)){
-          state.images.push({
-            id: uid(), weekId: curWeek.id,
-            title: f.name.replace(/\.[a-z0-9]+$/i,"").replace(/[-_]+/g," "),
-            addedBy: me.id, addedAt: Date.now(), src: dataURL,
-            ratings: {}, thumbs: {}, comments: []
-          });
-        } else {
-          alert("The board is nearly full — \""+f.name+"\" was skipped. Remove old weeks' images to make room.");
-        }
-        next();
+      compress(f, function(blob){
+        var id = uid();
+        var path = curWeek.id + "/" + id + ".jpg";
+        busy = true; setChip("Uploading…");
+        stObject(path, "POST", blob, "image/jpeg")
+          .then(function(){
+            return ins("images", {
+              id:id, week_id:curWeek.id,
+              title: (f.name.replace(/\.[a-z0-9]+$/i,"").replace(/[-_]+/g," ").trim()) || "Untitled",
+              url: publicURL(path), storage_path: path, added_by: me.id, created_at: nowISO()
+            });
+          })
+          .then(function(){ busy = false; setChip("Saved"); next(); })
+          .catch(function(e){ busy = false; setChip("Upload failed"); showBanner("Image upload failed — " + esc(e.message)); });
       });
     })();
   }
-  function roomFor(dataURL){
-    return (JSON.stringify(state).length + dataURL.length) < MAX_BYTES*0.92;
+
+  function replaceImage(im, file){
+    compress(file, function(blob){
+      var path = im.storage_path || ((im.week_id||"w") + "/" + im.id + ".jpg");
+      busy = true; setChip("Uploading…");
+      stObject(path, "POST", blob, "image/jpeg")
+        .then(function(){
+          var bust = "?v=" + Date.now();
+          im.url = publicURL(path) + bust;
+          return upd("images", "id=eq."+im.id, { url: publicURL(path) + bust, storage_path: path });
+        })
+        .then(function(){ busy = false; setChip("Saved"); return load(true); })
+        .catch(function(e){ busy = false; setChip("Upload failed"); showBanner("Replace failed — " + esc(e.message)); });
+    });
   }
+
+  function removeImage(im){
+    if (!requireMe()) return;
+    if (!confirm('Remove "' + im.title + '" and its feedback?')) return;
+    state.images = state.images.filter(function(x){ return x.id!==im.id; });
+    state.reactions = state.reactions.filter(function(x){ return x.image_id!==im.id; });
+    state.comments = state.comments.filter(function(x){ return x.image_id!==im.id; });
+    renderBoard(); renderWeeks();
+    mutate(del("images", "id=eq."+im.id).then(function(){
+      if (im.storage_path) return stObject(im.storage_path, "DELETE").catch(function(){});
+    }));
+  }
+
   function compress(file, cb){
     var img = new Image();
     var url = URL.createObjectURL(file);
     img.onload = function(){
       var MAX = 1280;
       var w = img.naturalWidth, h = img.naturalHeight;
-      var s = Math.min(1, MAX/Math.max(w,h));
+      var s = Math.min(1, MAX / Math.max(w, h));
       var c = document.createElement("canvas");
       c.width = Math.round(w*s); c.height = Math.round(h*s);
       var x = c.getContext("2d");
-      x.fillStyle = "#FFFFFF"; x.fillRect(0,0,c.width,c.height);   /* flatten transparency */
+      x.fillStyle = "#FFFFFF"; x.fillRect(0, 0, c.width, c.height);
       x.drawImage(img, 0, 0, c.width, c.height);
       URL.revokeObjectURL(url);
-      cb(c.toDataURL("image/jpeg", 0.82));
+      c.toBlob(function(b){ cb(b); }, "image/jpeg", 0.82);
     };
     img.onerror = function(){ URL.revokeObjectURL(url); alert("Couldn't read that file as an image."); };
     img.src = url;
   }
 
-  function renderStorage(){
-    var used = JSON.stringify(state).length;
-    var pct = Math.min(100, Math.round(used/MAX_BYTES*100));
-    $("storageTxt").textContent = "Storage · " + (used/1048576).toFixed(1) + " MB of 14 MB";
-    $("storageBar").style.width = Math.max(2,pct) + "%";
-    $("storageBar").style.background = pct>85 ? "var(--bad)" : "var(--yellow)";
+  function renderFoot(){
+    if (!CONFIGURED){ $("storageTxt").textContent = "Offline"; return; }
+    $("storageTxt").textContent = state.images.length + " creatives · " +
+      state.reactions.length + " reactions · " + state.comments.length + " comments";
   }
 
-  /* ---------- requirements ---------- */
+  /* ---------- requests ---------- */
   function renderReqs(){
-    var open = state.requirements.filter(function(r){ return !r.done; });
-    var done = state.requirements.filter(function(r){ return r.done; });
+    harvestDrafts();
+    var open = state.requests.filter(function(r){ return r.status !== "done"; });
+    var done = state.requests.filter(function(r){ return r.status === "done"; });
     $("reqCnt").textContent = open.length;
     $("openBig").textContent = open.length;
     $("doneSmall").textContent = done.length + " completed";
+
     var mk = function(r){
-      var by = person(r.by), db = r.doneBy ? person(r.doneBy) : null;
+      var by = person(r.requested_by), db = r.done_by ? person(r.done_by) : null;
       var el = document.createElement("div");
-      el.className = "req" + (r.done ? " done" : "");
+      el.className = "req" + (r.status === "done" ? " done" : "");
       el.innerHTML =
-        '<button class="cb" type="button" title="'+(r.done?"Reopen":"Mark done")+'">'+
+        '<button class="cb" type="button" title="'+(r.status==="done"?"Reopen":"Mark done")+'">'+
           '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></button>'+
-        '<div class="tx"><div class="t">'+esc(r.text)+'</div>'+
-        '<div class="m">Asked by <b>'+esc(by?by.name:"—")+'</b> · '+fmtDay(r.at)+
-        (r.done ? ' &nbsp;→&nbsp; done by <b>'+esc(db?db.name:"—")+'</b> · '+fmtDay(r.doneAt) : "")+
+        '<div class="tx"><div class="t">'+esc(r.title)+'</div>'+
+        '<div class="m">Asked by <b>'+esc(by?by.name:"—")+'</b> · '+fmtDay(r.created_at)+
+        (r.status==="done" ? ' &nbsp;→&nbsp; done by <b>'+esc(db?db.name:"—")+'</b> · '+fmtDay(r.done_at) : "")+
         '</div></div>';
-      el.querySelector(".cb").onclick = function(){
-        if (!requireMe()) return;
-        if (r.done){ r.done=false; delete r.doneBy; delete r.doneAt; }
-        else { r.done=true; r.doneBy=me.id; r.doneAt=Date.now(); }
-        renderReqs(); markDirty();
-      };
+      el.querySelector(".cb").onclick = function(){ toggleReq(r); };
       return el;
     };
+
     var ro = $("reqOpen"); ro.innerHTML = "";
     if (!open.length) ro.innerHTML = '<div style="color:var(--ink-mute);font-size:12.5px;padding:4px 2px">Nothing open — the queue is clear.</div>';
-    open.slice().sort(function(a,b){ return b.at-a.at; }).forEach(function(r){ ro.appendChild(mk(r)); });
+    sortBy(open, "created_at").reverse().forEach(function(r){ ro.appendChild(mk(r)); });
+
     var rd = $("reqDone"); rd.innerHTML = "";
     if (!done.length) rd.innerHTML = '<div style="color:var(--ink-mute);font-size:12.5px;padding:4px 2px">Nothing completed yet.</div>';
-    done.slice().sort(function(a,b){ return (b.doneAt||0)-(a.doneAt||0); }).forEach(function(r){ rd.appendChild(mk(r)); });
+    done.slice().sort(function(a,b){ return (b.done_at||"") < (a.done_at||"") ? -1 : 1; }).forEach(function(r){ rd.appendChild(mk(r)); });
   }
+
+  function toggleReq(r){
+    if (!requireMe()) return;
+    var patch = (r.status === "done")
+      ? { status:"open", done_by:null, done_at:null }
+      : { status:"done", done_by: me.id, done_at: nowISO() };
+    Object.assign(r, patch);
+    renderReqs();
+    mutate(upd("requests", "id=eq."+r.id, patch));
+  }
+
   $("reqAdd").onclick = addReq;
-  $("reqInput").onkeydown = function(e){ if (e.key==="Enter") addReq(); };
-  $("reqInput").setAttribute("data-draft","req_new");
+  $("reqInput").setAttribute("data-draft", "req_new");
+  $("reqInput").onkeydown = function(e){ if (e.key === "Enter") addReq(); };
   function addReq(){
     if (!requireMe()) return;
     var t = $("reqInput").value.trim(); if (!t) return;
-    state.requirements.push({ id: uid(), text: t, by: me.id, at: Date.now(), done: false });
+    var row = { id: uid(), title: t, detail: "", requested_by: me.id, status: "open", created_at: nowISO() };
+    state.requests.push(row);
+    delete drafts["req_new"];
     $("reqInput").value = "";
-    renderReqs(); markDirty();
+    renderReqs();
+    mutate(ins("requests", row));
   }
 
   /* ---------- profile picker ---------- */
+  var COLORS = ["#F2E64F","#8AB4F8","#F49BC1","#79C388","#F0A45B","#B49BF4","#6FD3C7","#E5735F","#D8C46A","#9AD1F0"];
   function openPicker(){
     var g = $("pplGrid"); g.innerHTML = "";
-    state.people.forEach(function(p){
+    sortBy(state.people, "name").forEach(function(p){
       var b = document.createElement("button");
       b.type = "button";
-      b.innerHTML = '<span class="av" style="background:'+p.color+'">'+esc(initials(p.name))+'</span>'+esc(p.name);
+      b.innerHTML = '<span class="av" style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</span>'+esc(p.name);
       b.onclick = function(){ pickMe(p); };
       g.appendChild(b);
     });
@@ -802,18 +814,17 @@
     $("veil").classList.remove("show");
     renderAll();
   }
-  var COLORS = ["#F2E64F","#8AB4F8","#F49BC1","#79C388","#F0A45B","#B49BF4","#6FD3C7","#E5735F","#D8C46A","#9AD1F0"];
   $("addPerson").onclick = function(){
     var n = $("newPerson").value.trim(); if (!n) return;
-    var p = { id: uid(), name: n, color: COLORS[state.people.length % COLORS.length], role: "Reviewer" };
-    state.people.push(p);
+    var row = { id: uid(), name: n, color: COLORS[state.people.length % COLORS.length], role: "Reviewer", created_at: nowISO() };
+    state.people.push(row);
     $("newPerson").value = "";
-    markDirty(); pickMe(p);
+    mutate(ins("people", row)).then(function(){ pickMe(row); });
   };
-  $("newPerson").onkeydown = function(e){ if (e.key==="Enter") $("addPerson").click(); };
+  $("newPerson").onkeydown = function(e){ if (e.key === "Enter") $("addPerson").click(); };
   $("switchBtn").onclick = openPicker;
   function requireMe(){
-    if (!canWrite){ return false; }
+    if (!CONFIGURED){ showBanner("<b>Not connected.</b> Add your Supabase URL + anon key at the top of creative-board.html."); return false; }
     if (!me){ openPicker(); return false; }
     return true;
   }
@@ -829,16 +840,37 @@
   }
   $("newWeek").onclick = function(){
     if (!requireMe()) return;
-    var d = new Date(); var dd = (2 - d.getDay() + 7) % 7;           /* next Tuesday */
+    var d = new Date();
+    var dd = (2 - d.getDay() + 7) % 7;                 // next Tuesday
     var t = new Date(d.getTime() + dd*86400000);
-    var def = "WBR — " + t.toLocaleDateString("en-IN",{month:"short",day:"numeric",year:"numeric"});
+    var def = "WBR — " + t.toLocaleDateString("en-IN", { month:"short", day:"numeric", year:"numeric" });
     var label = prompt("Name this week:", def);
     if (!label) return;
-    var w = { id: uid(), label: label.trim() };
-    state.weeks.push(w); curWeek = w;
-    renderWeeks(); renderBoard(); markDirty();
+    var row = { id: uid(), label: label.trim(), created_at: nowISO() };
+    state.weeks.push(row); curWeek = row;
+    renderWeeks(); renderBoard();
+    mutate(ins("weeks", row));
   };
 
+  /* ---------- boot ---------- */
+  function boot(){
+    if (!CONFIGURED){
+      showBanner("<b>Not connected yet.</b> Open creative-board.html and paste your Supabase Project URL and anon key into the CONFIG block near the top. Setup SQL is in supabase-setup.sql.");
+      renderAll();
+      return;
+    }
+    load(true).then(function(){
+      try{ var s = localStorage.getItem("bcb_me"); me = s ? person(s) : null; }catch(e){}
+      hideBanner();
+      renderAll();
+      if (!me) openPicker();
+      setInterval(function(){ load(); }, POLL_MS);
+      document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "visible") load(); });
+      window.addEventListener("focus", function(){ load(); });
+    });
+  }
   boot();
 })();
 </script>
+</body>
+</html>
