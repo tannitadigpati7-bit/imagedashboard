@@ -45,6 +45,28 @@
     overflow:hidden;
   }
 
+  /* ============ login ============ */
+  .login{
+    max-width:420px;margin:8vh auto 0;background:var(--shell);border-radius:var(--r-lg);
+    border:1px solid var(--hairline-2);padding:30px 30px 28px;
+    box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  .login .lg-mark{width:34px;height:34px;border-radius:10px;background:var(--yellow);
+    display:grid;place-items:center;color:var(--ink-on-yellow);margin-bottom:16px}
+  .login .lg-mark svg{width:18px;height:18px}
+  .login h1{margin:0 0 4px;font-size:19px;font-weight:800}
+  .login p{margin:0 0 18px;font-size:12.5px;color:var(--ink-mute)}
+  .login input{
+    width:100%;background:var(--panel);border:1px solid var(--hairline-2);border-radius:12px;
+    color:var(--ink);font-family:var(--font);font-size:14px;padding:12px 14px;margin-bottom:10px}
+  .login input:focus{outline:none;border-color:var(--yellow)}
+  .login button{
+    width:100%;border:none;border-radius:12px;background:var(--yellow);color:var(--ink-on-yellow);
+    font-weight:700;font-size:14px;padding:12px;cursor:pointer}
+  .login button:hover{background:var(--yellow-deep)}
+  .login button:disabled{opacity:.5;cursor:default}
+  .login .msg{margin-top:12px;font-size:12.5px;color:var(--ink-dim);min-height:1.4em}
+  .login .msg.err{color:var(--bad)}
+
   /* ============ sidebar ============ */
   .side{
     flex:0 0 228px;border-right:1px solid var(--hairline);
@@ -63,6 +85,7 @@
     font-weight:800;font-size:19px;color:var(--ink-on-yellow)}
   .me .nm{font-weight:700;font-size:14.5px}
   .me .role{font-size:11px;color:var(--ink-mute);margin-bottom:9px}
+  .me .role.admin{color:var(--yellow)}
   .me button{
     background:transparent;border:1px solid var(--hairline-2);color:var(--ink-dim);
     border-radius:999px;padding:4px 14px;font-size:11.5px;font-weight:600;cursor:pointer;
@@ -157,6 +180,7 @@
     margin-left:auto;background:var(--panel-2);border-radius:999px;padding:4px 11px;
     font-size:11.5px;font-weight:700;color:var(--ink-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
   .avgchip b{color:var(--yellow)}
+  .selfnote{font-size:11px;color:var(--ink-mute);margin-left:auto}
 
   .who{display:flex;flex-wrap:wrap;gap:4px;min-height:0}
   .who .chip{
@@ -174,6 +198,7 @@
   .cmt .b{flex:1;min-width:0}
   .cmt .h{font-size:11px;color:var(--ink-mute)}
   .cmt .h b{color:var(--ink-dim);font-weight:700}
+  .cmt .h .loc{color:var(--yellow);font-weight:700}
   .cmt .t{color:var(--ink);overflow-wrap:break-word}
   .cmt-in{display:flex;gap:7px}
   .cmt-in input{
@@ -181,26 +206,54 @@
     color:var(--ink);font-family:var(--font);font-size:12.5px;padding:8px 11px;min-width:0}
   .cmt-in input::placeholder{color:var(--ink-mute)}
   .cmt-in input:focus{outline:none;border-color:var(--yellow)}
+  .cmt-in input:disabled{opacity:.55}
   .cmt-in button{
     flex:none;border:none;border-radius:10px;background:var(--panel-2);color:var(--ink);
     font-weight:700;font-size:12px;padding:0 13px;cursor:pointer}
   .cmt-in button:hover{background:var(--yellow);color:var(--ink-on-yellow)}
-  .cmt-in input:disabled{opacity:.55}
   .cmt-in button:disabled{opacity:.4;cursor:not-allowed;background:var(--panel-2);color:var(--ink)}
 
   /* ============ lightbox ============ */
   .lightbox{
-    position:fixed;inset:0;background:rgba(9,10,12,.93);z-index:60;
-    display:none;flex-direction:column;align-items:center;justify-content:center;
-    gap:12px;padding:30px;cursor:zoom-out}
+    position:fixed;inset:0;background:rgba(9,10,12,.94);z-index:60;
+    display:none;flex-direction:column;align-items:center;justify-content:center;padding:0}
   .lightbox.show{display:flex}
-  .lightbox img{max-width:94vw;max-height:84vh;object-fit:contain;border-radius:8px;
-    box-shadow:0 24px 70px rgba(0,0,0,.55);cursor:default}
-  .lightbox .cap{color:var(--ink-dim);font-size:12.5px;font-weight:600;text-align:center;max-width:80vw}
-  .lightbox .x{
-    position:absolute;top:16px;right:20px;width:36px;height:36px;border-radius:50%;
-    border:none;background:rgba(255,255,255,.12);color:var(--ink);font-size:16px;cursor:pointer}
-  .lightbox .x:hover{background:rgba(255,255,255,.22)}
+  .lb-stage{
+    flex:1;width:100%;overflow:hidden;display:flex;align-items:center;justify-content:center;
+    touch-action:none;user-select:none}
+  .lb-box{position:relative;transform-origin:center center;transition:transform .04s linear;will-change:transform;cursor:grab}
+  .lb-box.grabbing{cursor:grabbing;transition:none}
+  .lb-box.canpin{cursor:crosshair}
+  .lb-box img{display:block;max-width:94vw;max-height:78vh;object-fit:contain}
+  .lb-pinlayer{position:absolute;inset:0}
+  .pin{
+    position:absolute;transform:translate(-50%,-100%);width:22px;height:22px;border-radius:50% 50% 50% 2px;
+    background:var(--yellow);color:var(--ink-on-yellow);font-size:11px;font-weight:800;
+    display:grid;place-items:center;box-shadow:0 2px 6px rgba(0,0,0,.5);cursor:pointer;rotate:45deg}
+  .pin span{rotate:-45deg}
+  .pin.new{background:var(--good)}
+  .pin-bubble{
+    position:absolute;transform:translate(-50%,8px);background:var(--shell);border:1px solid var(--hairline-2);
+    border-radius:10px;padding:8px 11px;min-width:150px;max-width:240px;font-size:12px;color:var(--ink);
+    box-shadow:0 8px 24px rgba(0,0,0,.5);z-index:3}
+  .pin-bubble .who{font-size:10.5px;color:var(--ink-mute);margin-bottom:3px;display:block}
+  .pin-bubble input{
+    width:100%;background:var(--panel);border:1px solid var(--hairline-2);border-radius:8px;
+    color:var(--ink);font-family:var(--font);font-size:12px;padding:6px 9px;margin-top:6px}
+  .pin-bubble input:focus{outline:none;border-color:var(--yellow)}
+  .lb-bar{
+    display:flex;align-items:center;gap:8px;padding:12px 16px;flex-wrap:wrap;justify-content:center;
+    background:rgba(9,10,12,.6);width:100%}
+  .lb-bar .cap{color:var(--ink-dim);font-size:12.5px;font-weight:600;margin-right:auto;max-width:40vw;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lb-bar button{
+    border:1px solid var(--hairline-2);background:var(--panel);color:var(--ink);
+    border-radius:9px;padding:6px 12px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .lb-bar button:hover{border-color:var(--yellow);color:var(--yellow)}
+  .lb-bar .hint{color:var(--ink-mute);font-size:11px;margin-left:6px}
+  .lb-x{position:absolute;top:14px;right:18px;width:36px;height:36px;border-radius:50%;
+    border:none;background:rgba(255,255,255,.12);color:var(--ink);font-size:16px;cursor:pointer;z-index:4}
+  .lb-x:hover{background:rgba(255,255,255,.22)}
 
   /* drop targets */
   .dropcard{
@@ -282,14 +335,25 @@
     .me{display:flex;align-items:center;gap:10px;text-align:left;padding:8px 12px}
     .me .av{width:34px;height:34px;margin:0;font-size:13px}
     .me .role{display:none}
+    .lb-bar .cap{max-width:60vw}
   }
   @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 
-<div class="shell">
-  <!-- ================= SIDEBAR ================= -->
+<!-- ================= LOGIN ================= -->
+<div class="login hide" id="loginView">
+  <div class="lg-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-10 4 6 3-4 5 8z"/><circle cx="8.5" cy="5.5" r="1.5"/></svg></div>
+  <h1>Bathla Creative Board</h1>
+  <p>Sign in with your work email. We'll send you a one-time link — no password. You stay signed in on this device.</p>
+  <input id="loginEmail" type="email" autocomplete="email" placeholder="you@bathla.com">
+  <button id="loginBtn" type="button">Email me a sign-in link</button>
+  <div class="msg" id="loginMsg"></div>
+</div>
+
+<!-- ================= APP ================= -->
+<div class="shell hide" id="appShell">
   <aside class="side">
     <div class="logo">
       <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-10 4 6 3-4 5 8z"/><circle cx="8.5" cy="5.5" r="1.5"/></svg></div>
@@ -298,9 +362,9 @@
 
     <div class="me" id="meCard">
       <div class="av" id="meAv">?</div>
-      <div class="nm" id="meName">Choose reviewer</div>
+      <div class="nm" id="meName">—</div>
       <div class="role" id="meRole">&nbsp;</div>
-      <button id="switchBtn" type="button">Switch</button>
+      <button id="signOutBtn" type="button">Sign out</button>
     </div>
 
     <nav class="nav">
@@ -328,16 +392,14 @@
     </div>
   </aside>
 
-  <!-- ================= MAIN ================= -->
   <main class="main">
     <div class="banner" id="banner"><span id="bannerTxt"></span></div>
 
-    <!-- BOARD VIEW -->
     <section id="viewBoard">
       <div class="top">
         <div>
           <h1 id="weekTitle">Review board</h1>
-          <div class="sub" id="weekSub">Drop this week's creatives below — react and comment.</div>
+          <div class="sub" id="weekSub">Open each creative, rate it, and leave comments.</div>
         </div>
         <div class="sp"></div>
         <div class="savechip" id="saveChip"></div>
@@ -346,12 +408,11 @@
       <div class="grid" id="grid"></div>
     </section>
 
-    <!-- REQUESTS VIEW -->
     <section id="viewReq" class="hide">
       <div class="top">
         <div>
           <h1>Requests</h1>
-          <div class="sub">Anyone can add an ask. Dev checks it off when the creative is done.</div>
+          <div class="sub">Anyone can add an ask. Tick it off when the creative is done.</div>
         </div>
         <div class="sp"></div>
         <div class="savechip" id="saveChip2"></div>
@@ -374,49 +435,62 @@
   </main>
 </div>
 
-<!-- who-are-you modal -->
+<!-- claim-your-name modal -->
 <div class="veil" id="veil">
   <div class="modal">
-    <h2>Who's reviewing?</h2>
-    <p>Pick yourself once — every rating and comment you leave is stamped with your name so Dev knows whose feedback it is. This device remembers you.</p>
+    <h2>Which name is you?</h2>
+    <p>Link your email to a reviewer name. Every rating and comment you leave is stamped with it. You only do this once.</p>
     <div class="ppl" id="pplGrid"></div>
     <div class="addp">
       <input id="newPerson" maxlength="30" placeholder="Not listed? Type your name">
-      <button class="btn" id="addPerson" type="button">Join</button>
+      <button class="btn" id="addPerson" type="button">Add me</button>
     </div>
   </div>
 </div>
 
 <!-- full-image viewer -->
 <div class="lightbox" id="lightbox">
-  <button class="x" id="lightboxX" type="button" aria-label="Close">✕</button>
-  <img id="lightboxImg" alt="">
-  <div class="cap" id="lightboxCap"></div>
+  <button class="lb-x" id="lbX" type="button" aria-label="Close">✕</button>
+  <div class="lb-stage" id="lbStage">
+    <div class="lb-box" id="lbBox">
+      <img id="lbImg" alt="">
+      <div class="lb-pinlayer" id="lbPins"></div>
+    </div>
+  </div>
+  <div class="lb-bar">
+    <span class="cap" id="lbCap"></span>
+    <button id="lbOut" type="button" aria-label="Zoom out">−</button>
+    <button id="lbReset" type="button">1:1</button>
+    <button id="lbIn" type="button" aria-label="Zoom in">+</button>
+    <span class="hint" id="lbHint">scroll to zoom · click the image to pin a comment</span>
+  </div>
 </div>
 
 <input type="file" id="filePick" accept="image/*" multiple class="hide">
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
 (function(){
   "use strict";
 
-  /* ================= CONFIG =================
-     Fill these in after creating your Supabase project.
-     Settings -> API -> Project URL and "anon public" key.
-     The anon key is meant to be public; row rules in supabase-setup.sql
-     are what control access.                                            */
+  /* ================= CONFIG ================= */
   var SUPABASE_URL      = "https://czwqrvyjrytmamlltgqd.supabase.co";
   var SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN6d3Fydnlqcnl0bWFtbGx0Z3FkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgxNjY2MTcsImV4cCI6MjEwMzc0MjYxN30.htfHp7ecZxWrtbzMwOct2r29ARNN11itheYadvnwXzY";
   /* ========================================= */
 
-  var CONFIGURED = !/YOUR-PROJECT|YOUR-ANON-KEY/.test(SUPABASE_URL + SUPABASE_ANON_KEY);
-  var REST = SUPABASE_URL + "/rest/v1/";
   var POLL_MS = 5000;
-  var STORAGE_CAP_MB = 1024;   // Supabase free tier: 1 GB of file storage
+  var STORAGE_CAP_MB = 1024;
+
+  var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:"implicit" }
+  });
 
   var state = { people:[], weeks:[], images:[], ratings:[], comments:[], requests:[] };
-  var me = null, curWeek = null, lastSig = "", drafts = {}, busy = false;
-  var seen = {};   // image ids this device has opened full-size this session
+  var authEmail = null;      // signed-in email
+  var me = null;             // my people row
+  var isAdmin = false;
+  var curWeek = null, lastSig = "", drafts = {}, busy = false, started = false;
+  var seen = {};             // image ids opened full-size this session
 
   var $ = function(id){ return document.getElementById(id); };
   var esc = function(s){ return String(s==null?"":s).replace(/[&<>"']/g, function(c){
@@ -428,97 +502,173 @@
   var fmtDay = function(t){ try{ return new Date(t).toLocaleDateString("en-IN",{day:"numeric",month:"short"}); }catch(e){ return ""; } };
   var sortBy = function(a,k){ return a.slice().sort(function(x,y){ return (x[k]<y[k])?-1:(x[k]>y[k])?1:0; }); };
 
-  /* ---------- REST helpers ---------- */
-  function api(path, opts){
-    opts = opts || {};
-    opts.headers = Object.assign({
-      "apikey": SUPABASE_ANON_KEY,
-      "Authorization": "Bearer " + SUPABASE_ANON_KEY,
-      "Content-Type": "application/json"
-    }, opts.headers || {});
-    return fetch(REST + path, opts).then(function(r){
-      return r.text().then(function(t){
-        if (!r.ok) throw new Error(r.status + " " + t);
-        return t ? JSON.parse(t) : null;
-      });
+  /* ---------- query helper: unwrap {data,error} ---------- */
+  function q(p){
+    return Promise.resolve(p).then(function(r){
+      if (r && r.error) throw new Error(r.error.message || String(r.error));
+      return r ? r.data : null;
     });
   }
-  function sel(table){ return api(table + "?select=*"); }
-  function ins(table, row, prefer, q){
-    return api(table + (q ? ("?" + q) : ""), {
-      method:"POST", headers:{ "Prefer": prefer || "return=minimal" }, body: JSON.stringify(row) });
-  }
-  function upd(table, filter, patch){
-    return api(table + "?" + filter, {
-      method:"PATCH", headers:{ "Prefer":"return=minimal" }, body: JSON.stringify(patch) });
-  }
-  function del(table, filter){ return api(table + "?" + filter, { method:"DELETE" }); }
 
-  function stObject(path, method, body, ctype){
-    var h = { "apikey": SUPABASE_ANON_KEY, "Authorization": "Bearer " + SUPABASE_ANON_KEY };
-    if (ctype) h["Content-Type"] = ctype;
-    if (method === "POST") h["x-upsert"] = "true";
-    return fetch(SUPABASE_URL + "/storage/v1/object/creatives/" + path, { method:method, headers:h, body:body })
-      .then(function(r){ if (!r.ok) return r.text().then(function(t){ throw new Error("storage " + r.status + " " + t); }); return r; });
+  /* ================= AUTH ================= */
+  function showLogin(msg, err){
+    $("appShell").classList.add("hide");
+    $("loginView").classList.remove("hide");
+    if (msg != null){ $("loginMsg").textContent = msg; $("loginMsg").classList.toggle("err", !!err); }
   }
-  function publicURL(path){ return SUPABASE_URL + "/storage/v1/object/public/creatives/" + path; }
+  $("loginBtn").onclick = function(){
+    var email = $("loginEmail").value.trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ showLogin("That doesn't look like an email address.", true); return; }
+    $("loginBtn").disabled = true;
+    $("loginMsg").classList.remove("err");
+    $("loginMsg").textContent = "Sending…";
+    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.href.split("#")[0].split("?")[0] } })
+      .then(function(r){
+        $("loginBtn").disabled = false;
+        if (r.error){ showLogin(r.error.message, true); return; }
+        showLogin("Check your inbox — click the link in the email from Supabase. You can leave this tab open.");
+      })
+      .catch(function(e){ $("loginBtn").disabled = false; showLogin(String(e && e.message || e), true); });
+  };
+  $("loginEmail").onkeydown = function(e){ if (e.key === "Enter") $("loginBtn").click(); };
 
-  /* ---------- load / poll ---------- */
+  $("signOutBtn").onclick = function(){ sb.auth.signOut().then(function(){ location.reload(); }); };
+
+  function onAuthed(session){
+    authEmail = (session.user && session.user.email || "").toLowerCase();
+    $("loginView").classList.add("hide");
+    $("appShell").classList.remove("hide");
+    load(true).then(function(){
+      resolveMe();
+      if (!me){ openClaim(); return; }
+      afterReady();
+    });
+  }
+
+  sb.auth.getSession().then(function(r){
+    var s = r && r.data && r.data.session;
+    if (s) onAuthed(s); else showLogin();
+  });
+  sb.auth.onAuthStateChange(function(_evt, session){
+    if (session && !authEmail) onAuthed(session);
+    if (!session && authEmail){ authEmail = null; showLogin("Signed out."); }
+  });
+
+  function afterReady(){
+    if (started) { renderAll(); return; }
+    started = true;
+    renderAll();
+    setInterval(function(){ load(); }, POLL_MS);
+    document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "visible") load(); });
+    window.addEventListener("focus", function(){ load(); });
+  }
+
+  /* ---------- identity ---------- */
+  function resolveMe(){
+    me = null;
+    for (var i=0;i<state.people.length;i++){
+      if ((state.people[i].email||"").toLowerCase() === authEmail){ me = state.people[i]; break; }
+    }
+    isAdmin = !!(me && me.is_admin);
+  }
+  function openClaim(){
+    var g = $("pplGrid"); g.innerHTML = "";
+    var unclaimed = state.people.filter(function(p){ return !p.email; });
+    sortBy(unclaimed, "name").forEach(function(p){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.innerHTML = '<span class="av" style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</span>'+esc(p.name);
+      b.onclick = function(){ claim(p.id); };
+      g.appendChild(b);
+    });
+    $("veil").classList.add("show");
+  }
+  function claim(pid){
+    q(sb.from("people").update({ email: authEmail }).eq("id", pid))
+      .then(function(){ return load(true); })
+      .then(function(){ resolveMe(); $("veil").classList.remove("show"); afterReady(); })
+      .catch(function(e){ alert("Couldn't link that name: " + e.message); });
+  }
+  var COLORS = ["#F2E64F","#8AB4F8","#F49BC1","#79C388","#F0A45B","#B49BF4","#6FD3C7","#E5735F","#D8C46A","#9AD1F0"];
+  $("addPerson").onclick = function(){
+    var n = $("newPerson").value.trim(); if (!n) return;
+    var row = { id: uid(), name: n, color: COLORS[state.people.length % COLORS.length], role:"Reviewer", email: authEmail, is_admin:false, created_at: nowISO() };
+    q(sb.from("people").insert(row))
+      .then(function(){ return load(true); })
+      .then(function(){ resolveMe(); $("veil").classList.remove("show"); afterReady(); })
+      .catch(function(e){ alert("Couldn't add you: " + e.message); });
+  };
+  $("newPerson").onkeydown = function(e){ if (e.key === "Enter") $("addPerson").click(); };
+
+  /* ================= DATA ================= */
   function load(force){
-    if (!CONFIGURED){ renderAll(); return Promise.resolve(); }
+    if (!authEmail) return Promise.resolve();
     if (busy && !force) return Promise.resolve();
     var ae = document.activeElement;
     var typing = !force && ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-    return Promise.all([ sel("people"), sel("weeks"), sel("images"), sel("ratings"), sel("comments"), sel("requests") ])
-      .then(function(r){
-        state.people   = r[0] || [];
-        state.weeks    = sortBy(r[1] || [], "created_at");
-        state.images   = r[2] || [];
-        state.ratings  = r[3] || [];
-        state.comments = r[4] || [];
-        state.requests = r[5] || [];
-        if (!curWeek || !state.weeks.some(function(w){ return w.id===curWeek.id; }))
-          curWeek = state.weeks[state.weeks.length-1] || null;
-        else
-          curWeek = state.weeks.filter(function(w){ return w.id===curWeek.id; })[0];
-        var sig = JSON.stringify(state);
-        if (sig === lastSig && !force) return;
-        if (typing) return;                 // don't redraw under someone's cursor; next poll catches it
-        lastSig = sig;
-        renderAll();
-      })
-      .catch(function(e){ showBanner("Couldn't reach the board data — " + esc(e.message)); });
+    return Promise.all([
+      sb.from("people").select("*"),
+      sb.from("weeks").select("*"),
+      sb.from("images").select("*"),
+      sb.from("ratings").select("*"),
+      sb.from("comments").select("*"),
+      sb.from("requests").select("*")
+    ]).then(function(res){
+      for (var i=0;i<res.length;i++) if (res[i].error) throw new Error(res[i].error.message);
+      state.people   = res[0].data || [];
+      state.weeks    = sortBy(res[1].data || [], "created_at");
+      state.images   = res[2].data || [];
+      state.ratings  = res[3].data || [];
+      state.comments = res[4].data || [];
+      state.requests = res[5].data || [];
+      if (!curWeek || !state.weeks.some(function(w){ return w.id===curWeek.id; }))
+        curWeek = state.weeks[state.weeks.length-1] || null;
+      else
+        curWeek = state.weeks.filter(function(w){ return w.id===curWeek.id; })[0];
+      resolveMe();
+      if (!started) return;
+      var sig = JSON.stringify(state);
+      if (sig === lastSig && !force) return;
+      if (typing) return;
+      lastSig = sig;
+      renderAll();
+    }).catch(function(e){ showBanner("Couldn't load the board — " + esc(e.message)); });
   }
 
   function mutate(p){
     busy = true; setChip("Saving…");
-    return Promise.resolve(p)
+    return q(p)
       .then(function(){ busy = false; setChip("Saved"); return load(true); })
       .catch(function(e){
         busy = false; setChip("Couldn't save");
-        showBanner("That change didn't save — " + esc(e.message) + ". It'll retry on your next action.");
+        showBanner("That change didn't save — " + esc(e.message));
         return load(true);
       });
   }
+
+  /* storage */
+  function stUpload(path, blob){
+    return sb.storage.from("creatives").upload(path, blob, { contentType:"image/jpeg", upsert:true })
+      .then(function(r){ if (r.error) throw new Error(r.error.message); return sb.storage.from("creatives").getPublicUrl(path).data.publicUrl; });
+  }
+  function stRemove(path){ return sb.storage.from("creatives").remove([path]).catch(function(){}); }
 
   /* ---------- banners / chip ---------- */
   function showBanner(html){ $("bannerTxt").innerHTML = html; $("banner").classList.add("show"); }
   function hideBanner(){ $("banner").classList.remove("show"); }
   function setChip(t){ $("saveChip").textContent = t; $("saveChip2").textContent = t; }
 
-  /* ---------- rendering ---------- */
+  /* ================= RENDER ================= */
   function renderAll(){ renderMe(); renderWeeks(); renderBoard(); renderReqs(); renderFoot(); }
 
   function renderMe(){
-    if (me){
-      $("meAv").textContent = initials(me.name);
-      $("meAv").style.background = me.color || "#F2E64F";
-      $("meName").textContent = me.name;
-      $("meRole").textContent = me.role || "Reviewer";
-    } else {
-      $("meAv").textContent = "?"; $("meAv").style.background = "var(--panel-2)";
-      $("meName").textContent = "Choose reviewer"; $("meRole").innerHTML = "&nbsp;";
-    }
+    if (!me) return;
+    $("meAv").textContent = initials(me.name);
+    $("meAv").style.background = me.color || "#F2E64F";
+    $("meName").textContent = me.name;
+    var r = $("meRole");
+    r.textContent = isAdmin ? "Admin — sees all feedback" : (me.role || "Reviewer");
+    r.classList.toggle("admin", isAdmin);
   }
 
   function renderWeeks(){
@@ -547,16 +697,7 @@
     $("weekTitle").textContent = curWeek ? curWeek.label : "Review board";
     var grid = $("grid"); grid.innerHTML = "";
 
-    if (!CONFIGURED){
-      var m = document.createElement("div");
-      m.className = "empty-note";
-      m.textContent = "Not connected to Supabase yet — see the banner above.";
-      grid.appendChild(m);
-      return;
-    }
-
-    var imgs = state.images.filter(function(im){ return curWeek && im.week_id===curWeek.id; });
-    imgs = sortBy(imgs, "created_at");
+    var imgs = sortBy(state.images.filter(function(im){ return curWeek && im.week_id===curWeek.id; }), "created_at");
     imgs.forEach(function(im){ grid.appendChild(imageCard(im)); });
 
     var drop = document.createElement("div");
@@ -581,12 +722,11 @@
     card.className = "card";
     var by = person(im.added_by);
     var rx = state.ratings.filter(function(r){ return r.image_id===im.id; });
-    var count = rx.length;
-    var avg = count ? (rx.reduce(function(s,r){ return s + r.stars; }, 0) / count) : 0;
     var myR = me ? rx.filter(function(r){ return r.person_id===me.id; })[0] : null;
     var mine = myR ? myR.stars : 0;
+    var count = rx.length;
+    var avg = count ? (rx.reduce(function(s,r){ return s + r.stars; }, 0) / count) : 0;
     var cmts = sortBy(state.comments.filter(function(c){ return c.image_id===im.id; }), "created_at");
-
     var opened = !!seen[im.id];
 
     var html = "";
@@ -602,29 +742,36 @@
       html += '<button type="button" class="star'+(s<=mine?" fill":"")+'" data-n="'+s+'" title="'+s+' star'+(s>1?"s":"")+'" aria-label="'+s+' star'+(s>1?"s":"")+'">★</button>';
     }
     html += '</div>';
-    html += '<span class="avgchip">'+(count ? "<b>"+avg.toFixed(1)+"</b> avg · "+count+(count===1?" rating":" ratings") : "No ratings yet")+'</span>';
+    if (isAdmin){
+      html += '<span class="avgchip">'+(count ? "<b>"+avg.toFixed(1)+"</b> avg · "+count+(count===1?" rating":" ratings") : "No ratings yet")+'</span>';
+    } else {
+      html += '<span class="selfnote">'+(mine ? "Your rating saved" : "Your rating only")+'</span>';
+    }
     html += '</div>';
 
-    html += '<div class="who">';
-    sortBy(rx, "created_at").forEach(function(r){
-      var p = person(r.person_id); if(!p) return;
-      html += '<span class="chip" title="'+esc(p.name)+': '+r.stars+' star'+(r.stars>1?"s":"")+'"><i style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</i>'+r.stars+'★</span>';
-    });
-    html += '</div>';
+    if (isAdmin){
+      html += '<div class="who">';
+      sortBy(rx, "created_at").forEach(function(r){
+        var p = person(r.person_id); if(!p) return;
+        html += '<span class="chip" title="'+esc(p.name)+': '+r.stars+' star'+(r.stars>1?"s":"")+'"><i style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</i>'+r.stars+'★</span>';
+      });
+      html += '</div>';
+    }
 
     html += '<div class="comments"><div class="list">';
     cmts.forEach(function(c){
       var p = person(c.person_id);
+      var loc = (c.x != null && c.y != null) ? ' <span class="loc" title="pinned on the image">📍</span>' : '';
       html += '<div class="cmt"><span class="av" style="background:'+esc(p?p.color:"#888")+'">'+esc(p?initials(p.name):"?")+'</span>'+
-        '<div class="b"><div class="h"><b>'+esc(p?p.name:"Unknown")+'</b> · '+fmtDay(c.created_at)+'</div>'+
+        '<div class="b"><div class="h"><b>'+esc(p?p.name:"Unknown")+'</b> · '+fmtDay(c.created_at)+loc+'</div>'+
         '<div class="t">'+esc(c.body)+'</div></div></div>';
     });
     html += '</div>';
     var draftKey = "c_" + im.id;
     html += '<div class="cmt-in"><input maxlength="500" data-draft="'+draftKey+'"'+(opened?"":" disabled")+
-      ' placeholder="'+(opened?"What should change?":"Open the full image first")+'">'+
+      ' placeholder="'+(opened?"General comment — or open the image to pin one":"Open the full image first")+'">'+
       '<button type="button"'+(opened?"":" disabled")+'>Post</button></div>';
-    html += '</div></div>';
+    html += '</div>';
 
     card.innerHTML = html;
 
@@ -637,7 +784,7 @@
       titleIn.value = v;
       if (v === im.title) return;
       im.title = v;
-      mutate(upd("images", "id=eq."+im.id, { title:v }));
+      mutate(sb.from("images").update({ title:v }).eq("id", im.id));
     };
 
     Array.prototype.forEach.call(card.querySelectorAll(".stars .star"), function(btn){
@@ -650,12 +797,12 @@
       if (!requireMe()) return;
       if (!seen[im.id]){ openLightbox(im); return; }
       var t = cIn.value.trim(); if (!t) return;
-      var row = { id: uid(), image_id: im.id, person_id: me.id, body: t, created_at: nowISO() };
+      var row = { id: uid(), image_id: im.id, person_id: me.id, body: t, x:null, y:null, created_at: nowISO() };
       state.comments.push(row);
       delete drafts[draftKey];
       cIn.value = ""; cIn.blur();
       renderBoard();
-      mutate(ins("comments", row));
+      mutate(sb.from("comments").insert(row));
     };
     card.querySelector(".cmt-in button").onclick = post;
     cIn.onkeydown = function(e){ if (e.key === "Enter") post(); };
@@ -670,16 +817,15 @@
   /* ---------- ratings ---------- */
   function setRating(im, n){
     if (!requireMe()) return;
-    var mine = state.ratings.filter(function(r){ return r.image_id===im.id && r.person_id===me.id; })[0];
+    var mineRow = state.ratings.filter(function(r){ return r.image_id===im.id && r.person_id===me.id; })[0];
     var p;
-    if (mine && mine.stars === n){                       // click your current rating again to clear it
-      state.ratings = state.ratings.filter(function(r){ return r !== mine; });
-      p = del("ratings", "image_id=eq."+im.id+"&person_id=eq."+me.id);
+    if (mineRow && mineRow.stars === n){
+      state.ratings = state.ratings.filter(function(r){ return r !== mineRow; });
+      p = sb.from("ratings").delete().match({ image_id: im.id, person_id: me.id });
     } else {
-      if (mine) mine.stars = n;
+      if (mineRow) mineRow.stars = n;
       else state.ratings.push({ image_id:im.id, person_id:me.id, stars:n });
-      p = ins("ratings", { image_id:im.id, person_id:me.id, stars:n, created_at:nowISO() },
-              "return=minimal,resolution=merge-duplicates", "on_conflict=image_id,person_id");
+      p = sb.from("ratings").upsert({ image_id:im.id, person_id:me.id, stars:n, created_at:nowISO() }, { onConflict:"image_id,person_id" });
     }
     renderBoard();
     mutate(p);
@@ -708,13 +854,13 @@
         var id = uid();
         var path = curWeek.id + "/" + id + ".jpg";
         busy = true; setChip("Uploading…");
-        stObject(path, "POST", blob, "image/jpeg")
-          .then(function(){
-            return ins("images", {
+        stUpload(path, blob)
+          .then(function(url){
+            return q(sb.from("images").insert({
               id:id, week_id:curWeek.id,
               title: (f.name.replace(/\.[a-z0-9]+$/i,"").replace(/[-_]+/g," ").trim()) || "Untitled",
-              url: publicURL(path), storage_path: path, bytes: blob.size, added_by: me.id, created_at: nowISO()
-            });
+              url:url, storage_path:path, bytes: blob.size, added_by: me.id, created_at: nowISO()
+            }));
           })
           .then(function(){ busy = false; seen[id] = true; setChip("Saved"); next(); })
           .catch(function(e){ busy = false; setChip("Upload failed"); showBanner("Image upload failed — " + esc(e.message)); });
@@ -726,12 +872,12 @@
     compress(file, function(blob){
       var path = im.storage_path || ((im.week_id||"w") + "/" + im.id + ".jpg");
       busy = true; setChip("Uploading…");
-      stObject(path, "POST", blob, "image/jpeg")
+      stUpload(path, blob)
         .then(function(){
           var bust = "?v=" + Date.now();
-          im.url = publicURL(path) + bust;
+          im.url = sb.storage.from("creatives").getPublicUrl(path).data.publicUrl + bust;
           im.bytes = blob.size;
-          return upd("images", "id=eq."+im.id, { url: publicURL(path) + bust, storage_path: path, bytes: blob.size });
+          return q(sb.from("images").update({ url: im.url, storage_path: path, bytes: blob.size }).eq("id", im.id));
         })
         .then(function(){ busy = false; setChip("Saved"); return load(true); })
         .catch(function(e){ busy = false; setChip("Upload failed"); showBanner("Replace failed — " + esc(e.message)); });
@@ -745,9 +891,7 @@
     state.ratings = state.ratings.filter(function(x){ return x.image_id!==im.id; });
     state.comments = state.comments.filter(function(x){ return x.image_id!==im.id; });
     renderBoard(); renderWeeks();
-    mutate(del("images", "id=eq."+im.id).then(function(){
-      if (im.storage_path) return stObject(im.storage_path, "DELETE").catch(function(){});
-    }));
+    mutate(q(sb.from("images").delete().eq("id", im.id)).then(function(){ if (im.storage_path) return stRemove(im.storage_path); }));
   }
 
   function compress(file, cb){
@@ -770,7 +914,6 @@
   }
 
   function renderFoot(){
-    if (!CONFIGURED){ $("storageTxt").textContent = "Offline"; return; }
     var bytes = state.images.reduce(function(s, im){ return s + (Number(im.bytes) || 0); }, 0);
     var usedMB = bytes / 1048576;
     var pct = Math.min(100, usedMB / STORAGE_CAP_MB * 100);
@@ -782,7 +925,7 @@
     bar.style.background = pct > 85 ? "var(--bad)" : (pct > 60 ? "var(--yellow-deep)" : "var(--yellow)");
   }
 
-  /* ---------- requests ---------- */
+  /* ================= REQUESTS ================= */
   function renderReqs(){
     harvestDrafts();
     var open = state.requests.filter(function(r){ return r.status !== "done"; });
@@ -822,7 +965,7 @@
       : { status:"done", done_by: me.id, done_at: nowISO() };
     Object.assign(r, patch);
     renderReqs();
-    mutate(upd("requests", "id=eq."+r.id, patch));
+    mutate(sb.from("requests").update(patch).eq("id", r.id));
   }
 
   $("reqAdd").onclick = addReq;
@@ -836,44 +979,15 @@
     delete drafts["req_new"];
     $("reqInput").value = "";
     renderReqs();
-    mutate(ins("requests", row));
+    mutate(sb.from("requests").insert(row));
   }
 
-  /* ---------- profile picker ---------- */
-  var COLORS = ["#F2E64F","#8AB4F8","#F49BC1","#79C388","#F0A45B","#B49BF4","#6FD3C7","#E5735F","#D8C46A","#9AD1F0"];
-  function openPicker(){
-    var g = $("pplGrid"); g.innerHTML = "";
-    sortBy(state.people, "name").forEach(function(p){
-      var b = document.createElement("button");
-      b.type = "button";
-      b.innerHTML = '<span class="av" style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</span>'+esc(p.name);
-      b.onclick = function(){ pickMe(p); };
-      g.appendChild(b);
-    });
-    $("veil").classList.add("show");
-  }
-  function pickMe(p){
-    me = p;
-    try{ localStorage.setItem("bcb_me", p.id); }catch(e){}
-    $("veil").classList.remove("show");
-    renderAll();
-  }
-  $("addPerson").onclick = function(){
-    var n = $("newPerson").value.trim(); if (!n) return;
-    var row = { id: uid(), name: n, color: COLORS[state.people.length % COLORS.length], role: "Reviewer", created_at: nowISO() };
-    state.people.push(row);
-    $("newPerson").value = "";
-    mutate(ins("people", row)).then(function(){ pickMe(row); });
-  };
-  $("newPerson").onkeydown = function(e){ if (e.key === "Enter") $("addPerson").click(); };
-  $("switchBtn").onclick = openPicker;
   function requireMe(){
-    if (!CONFIGURED){ showBanner("<b>Not connected.</b> Add your Supabase URL + anon key at the top of creative-board.html."); return false; }
-    if (!me){ openPicker(); return false; }
+    if (!me){ openClaim(); return false; }
     return true;
   }
 
-  /* ---------- nav / weeks ---------- */
+  /* ================= NAV / WEEKS ================= */
   $("navBoard").onclick = function(){ swap(true); };
   $("navReq").onclick = function(){ swap(false); };
   function swap(board){
@@ -885,7 +999,7 @@
   $("newWeek").onclick = function(){
     if (!requireMe()) return;
     var d = new Date();
-    var dd = (2 - d.getDay() + 7) % 7;                 // next Tuesday
+    var dd = (2 - d.getDay() + 7) % 7;
     var t = new Date(d.getTime() + dd*86400000);
     var def = "WBR — " + t.toLocaleDateString("en-IN", { month:"short", day:"numeric", year:"numeric" });
     var label = prompt("Name this week:", def);
@@ -893,43 +1007,163 @@
     var row = { id: uid(), label: label.trim(), created_at: nowISO() };
     state.weeks.push(row); curWeek = row;
     renderWeeks(); renderBoard();
-    mutate(ins("weeks", row));
+    mutate(sb.from("weeks").insert(row));
   };
 
-  /* ---------- full-image viewer ---------- */
+  /* ================= LIGHTBOX (zoom / pan / pins) ================= */
+  var lb = { im:null, scale:1, tx:0, ty:0, drag:false, moved:false, px:0, py:0, provisional:null };
+
+  function lbApply(){
+    $("lbBox").style.transform = "translate("+lb.tx+"px,"+lb.ty+"px) scale("+lb.scale+")";
+    $("lbBox").classList.toggle("canpin", lb.scale === 1);
+  }
+  function lbZoom(dir, cx, cy){
+    var prev = lb.scale;
+    lb.scale = Math.min(6, Math.max(1, lb.scale * (dir > 0 ? 1.2 : 1/1.2)));
+    if (lb.scale === 1){ lb.tx = 0; lb.ty = 0; }
+    else if (cx != null){
+      var r = $("lbStage").getBoundingClientRect();
+      var ox = cx - r.left - r.width/2 - lb.tx;
+      var oy = cy - r.top - r.height/2 - lb.ty;
+      var k = lb.scale/prev - 1;
+      lb.tx -= ox * k; lb.ty -= oy * k;
+    }
+    lbApply();
+  }
+
   function openLightbox(im){
-    $("lightboxImg").src = im.url;
-    $("lightboxImg").alt = im.title || "";
-    $("lightboxCap").textContent = im.title || "";
+    lb.im = im; lb.scale = 1; lb.tx = 0; lb.ty = 0; lb.provisional = null;
+    $("lbImg").src = im.url;
+    $("lbImg").alt = im.title || "";
+    $("lbCap").textContent = im.title || "";
+    lbApply();
+    renderPins();
     $("lightbox").classList.add("show");
-    if (!seen[im.id]){ seen[im.id] = true; renderBoard(); }   // unlock its comment box
+    if (!seen[im.id]){ seen[im.id] = true; renderBoard(); }
   }
   function closeLightbox(){
     $("lightbox").classList.remove("show");
-    $("lightboxImg").removeAttribute("src");
+    $("lbImg").removeAttribute("src");
+    lb.im = null; lb.provisional = null;
   }
-  $("lightbox").onclick = function(e){ if (e.target.id !== "lightboxImg") closeLightbox(); };
-  $("lightboxX").onclick = closeLightbox;
-  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeLightbox(); });
+  $("lbX").onclick = closeLightbox;
+  $("lbIn").onclick = function(){ lbZoom(1, null); };
+  $("lbOut").onclick = function(){ lbZoom(-1, null); };
+  $("lbReset").onclick = function(){ lb.scale = 1; lb.tx = 0; lb.ty = 0; lbApply(); };
+  document.addEventListener("keydown", function(e){
+    if (!$("lightbox").classList.contains("show")) return;
+    if (e.key === "Escape") closeLightbox();
+    else if (e.key === "+" || e.key === "=") lbZoom(1, null);
+    else if (e.key === "-") lbZoom(-1, null);
+  });
 
-  /* ---------- boot ---------- */
-  function boot(){
-    if (!CONFIGURED){
-      showBanner("<b>Not connected yet.</b> Open creative-board.html and paste your Supabase Project URL and anon key into the CONFIG block near the top. Setup SQL is in supabase-setup.sql.");
-      renderAll();
-      return;
-    }
-    load(true).then(function(){
-      try{ var s = localStorage.getItem("bcb_me"); me = s ? person(s) : null; }catch(e){}
-      hideBanner();
-      renderAll();
-      if (!me) openPicker();
-      setInterval(function(){ load(); }, POLL_MS);
-      document.addEventListener("visibilitychange", function(){ if (document.visibilityState === "visible") load(); });
-      window.addEventListener("focus", function(){ load(); });
+  $("lbStage").addEventListener("wheel", function(e){
+    if (!$("lightbox").classList.contains("show")) return;
+    e.preventDefault();
+    lbZoom(e.deltaY < 0 ? 1 : -1, e.clientX, e.clientY);
+  }, { passive:false });
+
+  var box = $("lbBox");
+  box.addEventListener("mousedown", function(e){
+    if (e.button !== 0) return;
+    lb.drag = true; lb.moved = false; lb.px = e.clientX; lb.py = e.clientY;
+    box.classList.add("grabbing");
+  });
+  window.addEventListener("mousemove", function(e){
+    if (!lb.drag) return;
+    var dx = e.clientX - lb.px, dy = e.clientY - lb.py;
+    if (Math.abs(dx) + Math.abs(dy) > 3) lb.moved = true;
+    if (lb.scale > 1){ lb.tx += dx; lb.ty += dy; lb.px = e.clientX; lb.py = e.clientY; lbApply(); }
+  });
+  window.addEventListener("mouseup", function(e){
+    if (!lb.drag) return;
+    lb.drag = false; box.classList.remove("grabbing");
+    if (!lb.moved && e.target && e.target.id === "lbImg") placePin(e.clientX, e.clientY);
+  });
+
+  function placePin(cx, cy){
+    if (!requireMe()) return;
+    var r = $("lbImg").getBoundingClientRect();
+    var x = (cx - r.left) / r.width;
+    var y = (cy - r.top) / r.height;
+    if (x < 0 || x > 1 || y < 0 || y > 1) return;
+    lb.provisional = { x:x, y:y };
+    renderPins();
+    var inp = document.querySelector("#lbPins .pin-bubble input");
+    if (inp) inp.focus();
+  }
+
+  function visibleComments(imId){
+    return state.comments.filter(function(c){
+      return c.image_id === imId && c.x != null && c.y != null;
     });
   }
-  boot();
+
+  function renderPins(){
+    var layer = $("lbPins"); layer.innerHTML = "";
+    if (!lb.im) return;
+    var list = sortBy(visibleComments(lb.im.id), "created_at");
+    list.forEach(function(c, i){
+      var p = person(c.person_id);
+      var pin = document.createElement("div");
+      pin.className = "pin";
+      pin.style.left = (c.x*100) + "%";
+      pin.style.top  = (c.y*100) + "%";
+      pin.innerHTML = '<span>'+(i+1)+'</span>';
+      pin.title = (p ? p.name + ": " : "") + c.body;
+      pin.onclick = function(ev){
+        ev.stopPropagation();
+        var open = layer.querySelector(".pin-bubble.read");
+        if (open) open.remove();
+        var b = document.createElement("div");
+        b.className = "pin-bubble read";
+        b.style.left = (c.x*100) + "%";
+        b.style.top  = (c.y*100) + "%";
+        b.innerHTML = '<span class="who">'+esc(p?p.name:"Unknown")+' · '+fmtDay(c.created_at)+'</span>'+esc(c.body);
+        layer.appendChild(b);
+        setTimeout(function(){
+          document.addEventListener("click", function h(){ b.remove(); document.removeEventListener("click", h); });
+        }, 0);
+      };
+      layer.appendChild(pin);
+    });
+    if (lb.provisional){
+      var np = document.createElement("div");
+      np.className = "pin new";
+      np.style.left = (lb.provisional.x*100) + "%";
+      np.style.top  = (lb.provisional.y*100) + "%";
+      np.innerHTML = '<span>+</span>';
+      layer.appendChild(np);
+
+      var bubble = document.createElement("div");
+      bubble.className = "pin-bubble";
+      bubble.style.left = (lb.provisional.x*100) + "%";
+      bubble.style.top  = (lb.provisional.y*100) + "%";
+      bubble.innerHTML = '<span class="who">Pin a comment here</span><input maxlength="500" placeholder="What about this spot?">';
+      bubble.onclick = function(ev){ ev.stopPropagation(); };
+      var input = bubble.querySelector("input");
+      input.onkeydown = function(e){
+        if (e.key === "Enter"){ savePin(input.value); }
+        else if (e.key === "Escape"){ lb.provisional = null; renderPins(); }
+      };
+      layer.appendChild(bubble);
+    }
+  }
+
+  function savePin(text){
+    text = (text||"").trim();
+    if (!text || !lb.im || !lb.provisional || !requireMe()) { lb.provisional = null; renderPins(); return; }
+    var row = { id: uid(), image_id: lb.im.id, person_id: me.id, body: text,
+                x: lb.provisional.x, y: lb.provisional.y, created_at: nowISO() };
+    state.comments.push(row);
+    lb.provisional = null;
+    renderPins();
+    renderBoard();
+    mutate(sb.from("comments").insert(row));
+  }
+
+  /* ================= BOOT ================= */
+  hideBanner();
 })();
 </script>
 </body>
