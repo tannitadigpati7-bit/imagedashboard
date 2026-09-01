@@ -522,13 +522,24 @@
     $("loginBtn").disabled = true;
     $("loginMsg").classList.remove("err");
     $("loginMsg").textContent = "Sending…";
+    var settled = false;
+    var timer = setTimeout(function(){
+      if (settled) return;
+      settled = true;
+      $("loginBtn").disabled = false;
+      showLogin("Still waiting on the mail server after 25s — likely an SMTP config problem in Supabase (Authentication → SMTP Settings). Check the Supabase auth logs.", true);
+    }, 25000);
     sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.href.split("#")[0].split("?")[0] } })
       .then(function(r){
+        if (settled) return; settled = true; clearTimeout(timer);
         $("loginBtn").disabled = false;
         if (r.error){ showLogin(r.error.message, true); return; }
-        showLogin("Check your inbox — click the link in the email from Supabase. You can leave this tab open.");
+        showLogin("Check your inbox — click the link in the email. You can leave this tab open.");
       })
-      .catch(function(e){ $("loginBtn").disabled = false; showLogin(String(e && e.message || e), true); });
+      .catch(function(e){
+        if (settled) return; settled = true; clearTimeout(timer);
+        $("loginBtn").disabled = false; showLogin(String(e && e.message || e), true);
+      });
   };
   $("loginEmail").onkeydown = function(e){ if (e.key === "Enter") $("loginBtn").click(); };
 
