@@ -346,10 +346,12 @@
 <div class="login hide" id="loginView">
   <div class="lg-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-10 4 6 3-4 5 8z"/><circle cx="8.5" cy="5.5" r="1.5"/></svg></div>
   <h1>Bathla Creative Board</h1>
-  <p>Sign in with your work email. We'll send you a one-time link — no password. You stay signed in on this device.</p>
+  <p>Sign in with your work email and password. You stay signed in on this device.</p>
   <input id="loginEmail" type="email" autocomplete="email" placeholder="you@bathla.com">
-  <button id="loginBtn" type="button">Email me a sign-in link</button>
+  <input id="loginPass" type="password" autocomplete="current-password" placeholder="Password">
+  <button id="loginBtn" type="button">Sign in</button>
   <div class="msg" id="loginMsg"></div>
+  <div style="margin-top:14px;font-size:11.5px;color:var(--ink-mute)">No account yet? Ask Tannita or Theerthi to add you.</div>
 </div>
 
 <!-- ================= APP ================= -->
@@ -482,7 +484,7 @@
   var STORAGE_CAP_MB = 1024;
 
   var sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:"implicit" }
+    auth: { persistSession:true, autoRefreshToken:true, detectSessionInUrl:false }
   });
 
   var state = { people:[], weeks:[], images:[], ratings:[], comments:[], requests:[] };
@@ -518,30 +520,23 @@
   }
   $("loginBtn").onclick = function(){
     var email = $("loginEmail").value.trim().toLowerCase();
+    var pass  = $("loginPass").value;
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ showLogin("That doesn't look like an email address.", true); return; }
+    if (!pass){ showLogin("Enter your password.", true); return; }
     $("loginBtn").disabled = true;
     $("loginMsg").classList.remove("err");
-    $("loginMsg").textContent = "Sending…";
-    var settled = false;
-    var timer = setTimeout(function(){
-      if (settled) return;
-      settled = true;
-      $("loginBtn").disabled = false;
-      showLogin("Still waiting on the mail server after 25s — likely an SMTP config problem in Supabase (Authentication → SMTP Settings). Check the Supabase auth logs.", true);
-    }, 25000);
-    sb.auth.signInWithOtp({ email: email, options: { emailRedirectTo: location.href.split("#")[0].split("?")[0] } })
+    $("loginMsg").textContent = "Signing in…";
+    sb.auth.signInWithPassword({ email: email, password: pass })
       .then(function(r){
-        if (settled) return; settled = true; clearTimeout(timer);
         $("loginBtn").disabled = false;
         if (r.error){ showLogin(r.error.message, true); return; }
-        showLogin("Check your inbox — click the link in the email. You can leave this tab open.");
+        $("loginPass").value = "";
+        // onAuthStateChange -> onAuthed takes over
       })
-      .catch(function(e){
-        if (settled) return; settled = true; clearTimeout(timer);
-        $("loginBtn").disabled = false; showLogin(String(e && e.message || e), true);
-      });
+      .catch(function(e){ $("loginBtn").disabled = false; showLogin(String(e && e.message || e), true); });
   };
-  $("loginEmail").onkeydown = function(e){ if (e.key === "Enter") $("loginBtn").click(); };
+  $("loginEmail").onkeydown = function(e){ if (e.key === "Enter") $("loginPass").focus(); };
+  $("loginPass").onkeydown  = function(e){ if (e.key === "Enter") $("loginBtn").click(); };
 
   $("signOutBtn").onclick = function(){ sb.auth.signOut().then(function(){ location.reload(); }); };
 

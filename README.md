@@ -13,7 +13,7 @@ Browser (any device)  ──HTTPS──►  Supabase (Auth + Postgres + Storage)
 ```
 
 - **Page:** `creative-board.html`, served free by GitHub Pages. Config (Supabase URL + anon key) is a block at the top of the file.
-- **Login:** email magic-link (Supabase Auth). Each person signs in once per device; the session persists and auto-refreshes. On first login they link their email to a `people` row ("claim your name"); after that every rating/comment is stamped with it.
+- **Login:** email + password (Supabase Auth). Accounts are created by an admin in the Supabase dashboard and handed out; no email sending involved. Session persists and auto-refreshes on the device. On first login the person links their email to a `people` row ("claim your name"); after that every rating/comment is stamped with it.
 - **Visibility (enforced in the database, not just the UI):**
   - Reviewers can read/write **only their own** rows in `ratings` and `comments`.
   - **Admins** (`people.is_admin = true` — Tannita & Theerthi) read everyone's ratings and comments.
@@ -37,16 +37,15 @@ Browser (any device)  ──HTTPS──►  Supabase (Auth + Postgres + Storage)
 
 1. Create a free Supabase project at https://supabase.com.
 2. SQL Editor → New query → paste all of `supabase-setup.sql` → Run.
-3. **Auth → URL Configuration**: set **Site URL** and add a **Redirect URL** of
-   `https://tannitadigpati7-bit.github.io/imagedashboard/creative-board.html`
-   (Email provider under Auth → Providers is on by default.)
-4. Settings → API → copy **Project URL** and **anon public** key into the `CONFIG` block near the top of `creative-board.html`, commit, push.
-5. Repo → Settings → Pages → Source: Deploy from a branch, `main`, `/ (root)`.
-6. Share the live URL. Each reviewer signs in with their `@bathla.com` email.
+3. **Authentication → Providers → Email**: turn **OFF** "Confirm email" (so dashboard-created accounts work right away). Leave the Email provider itself enabled. Custom SMTP is not needed.
+4. **Authentication → Users → Add user** — for each teammate: email + a password + tick **Auto Confirm User**. Hand out the passwords.
+5. Settings → API → copy **Project URL** and **anon public** key into the `CONFIG` block near the top of `creative-board.html`, commit, push.
+6. Repo → Settings → Pages → Source: Deploy from a branch, `main`, `/ (root)`.
+7. Share the live URL. Each teammate signs in with their email + password, then picks their name once.
 
 ## Migrating an existing v2 project (thumbs / no login)
 
-Run `migrate-v3.sql` in the SQL Editor, then do step 3 above (Auth URL config). No data is lost.
+Run `migrate-v3.sql` in the SQL Editor, then do steps 3–4 above (turn off "Confirm email", create the user accounts). No data is lost.
 
 ## Admins
 
