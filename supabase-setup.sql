@@ -35,14 +35,16 @@ create table if not exists public.images (
 -- for projects created before the storage bar was added:
 alter table public.images add column if not exists bytes bigint;
 
-create table if not exists public.reactions (
+create table if not exists public.ratings (
   id          bigint generated always as identity primary key,
   image_id    text not null references public.images(id) on delete cascade,
   person_id   text not null references public.people(id) on delete cascade,
-  value       text not null check (value in ('up','down')),
+  stars       smallint not null check (stars between 1 and 5),
   created_at  timestamptz not null default now(),
   unique (image_id, person_id)
 );
+-- projects created before the star rating: drop the old thumbs-up/down table
+drop table if exists public.reactions cascade;
 
 create table if not exists public.comments (
   id          text primary key,
@@ -68,17 +70,17 @@ create table if not exists public.requests (
 -- Internal tool behind an unlisted URL: the public anon key may read and write
 -- these six tables. Nothing else in the project is exposed.
 -- Tighten later if the board ever needs to be locked down.
-alter table public.people    enable row level security;
-alter table public.weeks     enable row level security;
-alter table public.images    enable row level security;
-alter table public.reactions enable row level security;
-alter table public.comments  enable row level security;
-alter table public.requests  enable row level security;
+alter table public.people   enable row level security;
+alter table public.weeks    enable row level security;
+alter table public.images   enable row level security;
+alter table public.ratings  enable row level security;
+alter table public.comments enable row level security;
+alter table public.requests enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['people','weeks','images','reactions','comments','requests'] loop
+  foreach t in array array['people','weeks','images','ratings','comments','requests'] loop
     execute format('drop policy if exists "anon rw" on public.%I', t);
     execute format(
       'create policy "anon rw" on public.%I for all to anon using (true) with check (true)', t);

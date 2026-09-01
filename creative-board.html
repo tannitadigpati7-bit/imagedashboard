@@ -146,16 +146,13 @@
   .card .title:focus{outline:2px solid var(--yellow);background:var(--panel-2)}
   .card .meta{font-size:11px;color:var(--ink-mute);padding:0 4px;margin-top:-6px}
 
-  .raterow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .thumb{
-    height:34px;padding:0 16px;border-radius:11px;border:1px solid var(--hairline-2);
-    background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:7px;
-    color:var(--ink-dim);font-weight:700;font-size:12.5px;font-variant-numeric:tabular-nums;
-  }
-  .thumb svg{width:15px;height:15px}
-  .thumb:hover{color:var(--ink)}
-  .thumb.up.on{background:var(--good);border-color:var(--good);color:#17281C}
-  .thumb.dn.on{background:var(--bad);border-color:var(--bad);color:#2B140F}
+  .raterow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .stars{display:inline-flex;gap:1px}
+  .stars .star{
+    background:transparent;border:none;cursor:pointer;padding:2px;line-height:1;
+    font-size:20px;color:var(--hairline-2);transition:color .1s}
+  .stars .star.fill{color:var(--yellow)}
+  .stars .star:hover{color:var(--yellow-deep)}
   .avgchip{
     margin-left:auto;background:var(--panel-2);border-radius:999px;padding:4px 11px;
     font-size:11.5px;font-weight:700;color:var(--ink-dim);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -381,7 +378,7 @@
 <div class="veil" id="veil">
   <div class="modal">
     <h2>Who's reviewing?</h2>
-    <p>Pick yourself once — every reaction and comment you leave is stamped with your name so Dev knows whose feedback it is. This device remembers you.</p>
+    <p>Pick yourself once — every rating and comment you leave is stamped with your name so Dev knows whose feedback it is. This device remembers you.</p>
     <div class="ppl" id="pplGrid"></div>
     <div class="addp">
       <input id="newPerson" maxlength="30" placeholder="Not listed? Type your name">
@@ -417,7 +414,7 @@
   var POLL_MS = 5000;
   var STORAGE_CAP_MB = 1024;   // Supabase free tier: 1 GB of file storage
 
-  var state = { people:[], weeks:[], images:[], reactions:[], comments:[], requests:[] };
+  var state = { people:[], weeks:[], images:[], ratings:[], comments:[], requests:[] };
   var me = null, curWeek = null, lastSig = "", drafts = {}, busy = false;
   var seen = {};   // image ids this device has opened full-size this session
 
@@ -472,12 +469,12 @@
     if (busy && !force) return Promise.resolve();
     var ae = document.activeElement;
     var typing = !force && ae && (ae.tagName === "INPUT" || ae.tagName === "TEXTAREA");
-    return Promise.all([ sel("people"), sel("weeks"), sel("images"), sel("reactions"), sel("comments"), sel("requests") ])
+    return Promise.all([ sel("people"), sel("weeks"), sel("images"), sel("ratings"), sel("comments"), sel("requests") ])
       .then(function(r){
         state.people   = r[0] || [];
         state.weeks    = sortBy(r[1] || [], "created_at");
         state.images   = r[2] || [];
-        state.reactions= r[3] || [];
+        state.ratings  = r[3] || [];
         state.comments = r[4] || [];
         state.requests = r[5] || [];
         if (!curWeek || !state.weeks.some(function(w){ return w.id===curWeek.id; }))
@@ -583,10 +580,11 @@
     var card = document.createElement("div");
     card.className = "card";
     var by = person(im.added_by);
-    var rx = state.reactions.filter(function(r){ return r.image_id===im.id; });
-    var ups = rx.filter(function(r){ return r.value==="up"; }).length;
-    var dns = rx.filter(function(r){ return r.value==="down"; }).length;
+    var rx = state.ratings.filter(function(r){ return r.image_id===im.id; });
+    var count = rx.length;
+    var avg = count ? (rx.reduce(function(s,r){ return s + r.stars; }, 0) / count) : 0;
     var myR = me ? rx.filter(function(r){ return r.person_id===me.id; })[0] : null;
+    var mine = myR ? myR.stars : 0;
     var cmts = sortBy(state.comments.filter(function(c){ return c.image_id===im.id; }), "created_at");
 
     var opened = !!seen[im.id];
@@ -599,19 +597,18 @@
     html += '<input class="title" maxlength="80" value="'+esc(im.title)+'" aria-label="Image title">';
     html += '<div class="meta">Added by '+esc(by?by.name:"—")+' · '+fmtDay(im.created_at)+'</div>';
 
-    html += '<div class="raterow">';
-    html += '<button type="button" class="thumb up'+(myR&&myR.value==="up"?" on":"")+'" title="Thumbs up">'+
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 22V11m0 0L11 3c1.5 0 2.5 1 2.5 2.5V9H19a2 2 0 012 2l-1.6 8a2 2 0 01-2 1.6H7z"/><path d="M7 11H3v11h4"/></svg>'+ups+'</button>';
-    html += '<button type="button" class="thumb dn'+(myR&&myR.value==="down"?" on":"")+'" title="Thumbs down">'+
-      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2v11m0 0l-4 8c-1.5 0-2.5-1-2.5-2.5V15H5a2 2 0 01-2-2l1.6-8a2 2 0 012-1.6H17z"/><path d="M17 13h4V2h-4"/></svg>'+dns+'</button>';
-    html += '<span class="avgchip">'+((ups||dns) ? "<b>"+(ups-dns>0?"+":"")+(ups-dns)+"</b> · "+(ups+dns)+(ups+dns===1?" reaction":" reactions") : "No reactions")+'</span>';
+    html += '<div class="raterow"><div class="stars" role="group" aria-label="Your rating">';
+    for (var s=1; s<=5; s++){
+      html += '<button type="button" class="star'+(s<=mine?" fill":"")+'" data-n="'+s+'" title="'+s+' star'+(s>1?"s":"")+'" aria-label="'+s+' star'+(s>1?"s":"")+'">★</button>';
+    }
+    html += '</div>';
+    html += '<span class="avgchip">'+(count ? "<b>"+avg.toFixed(1)+"</b> avg · "+count+(count===1?" rating":" ratings") : "No ratings yet")+'</span>';
     html += '</div>';
 
     html += '<div class="who">';
-    rx.forEach(function(r){
+    sortBy(rx, "created_at").forEach(function(r){
       var p = person(r.person_id); if(!p) return;
-      var t = r.value==="up" ? "▲" : "▼";
-      html += '<span class="chip" title="'+esc(p.name)+': thumbs '+esc(r.value)+'"><i style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</i>'+t+'</span>';
+      html += '<span class="chip" title="'+esc(p.name)+': '+r.stars+' star'+(r.stars>1?"s":"")+'"><i style="background:'+esc(p.color||"#888")+'">'+esc(initials(p.name))+'</i>'+r.stars+'★</span>';
     });
     html += '</div>';
 
@@ -643,8 +640,9 @@
       mutate(upd("images", "id=eq."+im.id, { title:v }));
     };
 
-    card.querySelector(".thumb.up").onclick = function(){ toggleReaction(im, "up"); };
-    card.querySelector(".thumb.dn").onclick = function(){ toggleReaction(im, "down"); };
+    Array.prototype.forEach.call(card.querySelectorAll(".stars .star"), function(btn){
+      btn.onclick = function(){ setRating(im, Number(btn.getAttribute("data-n"))); };
+    });
 
     var cIn = card.querySelector(".cmt-in input");
     if (drafts[draftKey]) cIn.value = drafts[draftKey];
@@ -669,18 +667,18 @@
     return card;
   }
 
-  /* ---------- reactions ---------- */
-  function toggleReaction(im, val){
+  /* ---------- ratings ---------- */
+  function setRating(im, n){
     if (!requireMe()) return;
-    var mine = state.reactions.filter(function(r){ return r.image_id===im.id && r.person_id===me.id; })[0];
+    var mine = state.ratings.filter(function(r){ return r.image_id===im.id && r.person_id===me.id; })[0];
     var p;
-    if (mine && mine.value === val){
-      state.reactions = state.reactions.filter(function(r){ return r !== mine; });
-      p = del("reactions", "image_id=eq."+im.id+"&person_id=eq."+me.id);
+    if (mine && mine.stars === n){                       // click your current rating again to clear it
+      state.ratings = state.ratings.filter(function(r){ return r !== mine; });
+      p = del("ratings", "image_id=eq."+im.id+"&person_id=eq."+me.id);
     } else {
-      if (mine) mine.value = val;
-      else state.reactions.push({ image_id:im.id, person_id:me.id, value:val });
-      p = ins("reactions", { image_id:im.id, person_id:me.id, value:val, created_at:nowISO() },
+      if (mine) mine.stars = n;
+      else state.ratings.push({ image_id:im.id, person_id:me.id, stars:n });
+      p = ins("ratings", { image_id:im.id, person_id:me.id, stars:n, created_at:nowISO() },
               "return=minimal,resolution=merge-duplicates", "on_conflict=image_id,person_id");
     }
     renderBoard();
@@ -744,7 +742,7 @@
     if (!requireMe()) return;
     if (!confirm('Remove "' + im.title + '" and its feedback?')) return;
     state.images = state.images.filter(function(x){ return x.id!==im.id; });
-    state.reactions = state.reactions.filter(function(x){ return x.image_id!==im.id; });
+    state.ratings = state.ratings.filter(function(x){ return x.image_id!==im.id; });
     state.comments = state.comments.filter(function(x){ return x.image_id!==im.id; });
     renderBoard(); renderWeeks();
     mutate(del("images", "id=eq."+im.id).then(function(){
