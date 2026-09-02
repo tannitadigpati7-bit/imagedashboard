@@ -1,6 +1,6 @@
 # Creative Review Board
 
-Weekly image-review dashboard for the creatives Tannita & Theerthi's team sends before the Tuesday WBR. Runs as a plain web page on GitHub Pages; all feedback lives in a Supabase database. Meant to plug into the larger WBR system later by reading the same tables.
+Weekly image-review dashboard for the creatives admin team sends before the Tuesday WBR. Runs as a plain web page on GitHub Pages; all feedback lives in a Supabase database. Meant to plug into the larger WBR system later by reading the same tables.
 
 **Live board:** https://tannitadigpati7-bit.github.io/imagedashboard/creative-board.html
 **Source:** `creative-board.html` — one static file, no build step. Loads `@supabase/supabase-js` from jsDelivr.
